@@ -13,6 +13,8 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    outputs:
+      pr-number: ${{ steps.cpr.outputs.pull-request-number }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -28,16 +30,27 @@ jobs:
 
       - name: Add automerge label
         if: steps.cpr.outputs.pull-request-number != ''
-        run: gh pr edit ${{ steps.cpr.outputs.pull-request-number }} --add-label "automerge"
+        run: |
+          gh pr edit ${{ steps.cpr.outputs.pull-request-number }} --add-label "automerge"
+          echo "PR created with automerge label"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   validate:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    if: always()  # Run even if previous job failed
+    outputs:
+      validation-passed: ${{ steps.validation.outputs.result }}
     steps:
+      - name: Wait for PR creation
+        run: |
+          echo "Validating repository..."
+          sleep 2  # Give time for any preparation
+
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -48,18 +61,34 @@ jobs:
         run: pip install pyyaml
 
       - name: Validate repo against index.yaml
+        id: validation
         run: |
-          python .github/scripts/validate_index.py
+          python .github/scripts/validate_index.py && echo "result=true" >> $GITHUB_OUTPUT
 
   auto-merge:
-    needs: validate
-    if: github.event_name == 'pull_request' && success()
+    needs: [auto-pr, validate]
+    if: always() && needs.validate.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Debug PR info
+        run: |
+          echo "PR Number: ${{ needs.auto-pr.outputs.pr-number }}"
+          echo "PR URL: https://github.com/${{ github.repository }}/pull/${{ needs.auto-pr.outputs.pr-number }}"
+
       - name: Merge PR
-        run: gh pr merge ${{ github.event.pull_request.number }} --squash --auto
+        run: |
+          if [ "${{ needs.auto-pr.outputs.pr-number }}" != "" ]; then
+            gh pr merge ${{ needs.auto-pr.outputs.pr-number }} --squash --auto
+            echo "Successfully merged PR ${{ needs.auto-pr.outputs.pr-number }}"
+          else
+            echo "No PR number found to merge"
+            exit 1
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
