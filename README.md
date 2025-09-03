@@ -50,7 +50,7 @@ This repository is organized into several main directories, each containing reso
 
 ## Index.yaml Explanation
 
-The `index.yaml` file serves as an index or manifest for the repository's resources. It defines a list of "agents" or guides, each mapped to a specific source file and a target output location. This file is likely used for automated processing, such as aggregating or publishing multiple markdown files into a consolidated document.
+The `index.yaml` file serves as an index or manifest for the repository's resources. It defines a list of "agents" or guides, each mapped to a specific source file and a target download path (used by `agentfetch`). This file is used for downloading and consolidating markdown content into local files.
 
 ### Structure
 - **Format**: YAML (Yet Another Markup Language), which is human-readable and structured.
@@ -58,6 +58,6 @@ The `index.yaml` file serves as an index or manifest for the repository's resour
 - **Fields per Agent**:
   - `name`: A human-readable title for the guide.
   - `source`: The file path relative to the repository root where the guide's content is located (e.g., `domains/business-analysis/ba.md`).
-  - `target`: The intended output destination for aggregation (in this case, `AGENTS.md` for all listed entries, suggesting a compilation process).
+  - `target`: The file path where the content will be downloaded when using `agentfetch` in the folder where agentfetch is run (e.g., `AGENTS.md` means the guide will be saved as AGENTS.md in the current directory).
 
-This setup enables easy categorization and batch processing of the markdown files into a unified output, such as generating a PDF, website, or combined documentation file.
+This setup enables easy downloading and management of guides using `agentfetch`, allowing users to retrieve specific or batch content locally.
