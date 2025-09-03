@@ -61,3 +61,16 @@ The `index.yaml` file serves as an index or manifest for the repository's resour
   - `target`: The file path where the content will be downloaded when using `agentfetch` in the folder where agentfetch is run (e.g., `AGENTS.md` means the guide will be saved as AGENTS.md in the current directory).
 
 This setup enables easy downloading and management of guides using `agentfetch`, allowing users to retrieve specific or batch content locally.
+
+## Support the Project
+
+Help maintain this growing collection of software development guides and best practices! 🌟
+
+Your support keeps all content **free and accessible** while funding:
+- Regular updates for emerging technologies
+- Automated quality assurance tools
+- Community-driven documentation improvements
+
+**☕ Buy me a coffee:** Support ongoing development and help developers worldwide!
+
+[![](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/freemm)
