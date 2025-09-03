@@ -1,5 +1,8 @@
 # Awesome Agents MD
 
+<!-- Test comment for workflow validation v1 -->
+<!-- This is a test change to trigger the automerge workflow -->
+
 ## Folder/File Structure
 
 This repository is organized into several main directories, each containing resources and guides for different aspects of software development, workflows, and best practices. The structure is hierarchical and categorized to make navigation and discovery easier.
