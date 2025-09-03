@@ -62,8 +62,15 @@ jobs:
 
       - name: Validate repo against index.yaml
         id: validation
+        continue-on-error: true  # Don't fail the step, handle manually
         run: |
-          python .github/scripts/validate_index.py && echo "result=true" >> $GITHUB_OUTPUT
+          if python .github/scripts/validate_index.py; then
+            echo "✅ Validation passed"
+            echo "result=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Validation failed"
+            echo "result=false" >> $GITHUB_OUTPUT
+          fi
 
   auto-merge:
     needs: [auto-pr, validate]
