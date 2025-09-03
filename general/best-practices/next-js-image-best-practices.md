@@ -129,7 +129,7 @@ export default {
     // Security enhancements
     dangerouslyAllowSVG: false,
     contentDispositionType: 'attachment',
-    contentSecurityPolicy: "default-src 'self'; img-src 'self' data: https: blob:;",
+    contentSecurityPolicy: "default-src 'self'; img-src 'self' https://images.unsplash.com https://cdn.example.com; script-src 'self';",
 
     // Next.js 15 new features
     allowFutureImage: true, // Support for emerging formats
@@ -531,8 +531,11 @@ export function DeviceAdaptiveImage({
     };
 
     updateDeviceType();
-    window.addEventListener('resize', updateDeviceType);
-    return () => window.removeEventListener('resize', updateDeviceType);
+
+    // Add resize listener with proper cleanup
+    const handleResize = updateDeviceType;
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, [src, mobileSrc, tabletSrc, desktopSrc]);
 
   // Get optimized sizes based on device
