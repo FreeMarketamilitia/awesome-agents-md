@@ -81,6 +81,8 @@ enable_auto_approval = true
 
 [config]
 enable_comment_approval = true    # Enable approval via comments
+approve_pr_on_self_review = true  # Enable manual approval via /review auto_approve
+comment.auto_approve_pr = true    # Enable auto-approval comment feature
 enable_auto_approval = true      # Enable criteria-based auto-approval
 auto_approve_for_low_review_effort = 3  # Auto-approve when review effort score <= 3
 auto_approve_for_no_suggestions = true  # Auto-approve when improve tool finds no suggestions
