@@ -1,0 +1,158 @@
+---
+description: Workspace-specific rules for BrainStorming workspace - optimized for rapid prototyping and project management
+author: Workspace System
+version: 3.0
+tags: [workspace-rules, prototyping, project-management, brain-storming]
+globs: ["**/*"]
+---
+
+# BrainStorming Workspace Rules
+
+## 🎯 Workspace Purpose
+This workspace is designed for rapid prototyping, brainstorming sessions, and managing multiple experimental projects with clear separation between workspace-level and project-specific rules.
+
+## 1. Project Discovery & Setup Protocol
+**Trigger**: When creating or discovering new project directories
+
+**Process**:
+1. **Scan for projects**: Check for directories with `README.md` or `package.json`
+2. **Initialize structure**: Ensure each project has:
+   - `rules/` directory for project-specific rules
+   - `memory-bank/` for project knowledge
+   - `workflows/` for project processes
+3. **Activate templates**: Copy relevant templates from global rules
+4. **Document setup**: Create project entry in workspace memory bank
+
+## 2. Rapid Prototyping Standards
+**Use When**: Creating quick prototypes or experimental code
+
+**Required Approach**:
+- **Time-boxed sessions**: 30-60 minute focused coding bursts
+- **Minimal setup**: Use existing templates, avoid over-engineering
+- **Progressive enhancement**: Start simple, iterate based on feedback
+- **Clear naming**: Use `experiment-*` prefix for prototypes
+- **Quick cleanup**: Archive or promote prototypes within 48 hours
+
+## 3. Cross-Project Knowledge Management
+**Always**:
+- **Central memory bank**: Maintain workspace-level knowledge in `memory-bank/`
+- **Project linking**: Cross-reference related projects
+- **Pattern extraction**: Identify reusable patterns across projects
+- **Template updates**: Improve global templates based on project learnings
+- **Knowledge transfer**: Document insights for future projects
+
+## 4. File Organization Standards
+**Before Any Project Changes**:
+- **Check project scope**: Is this workspace-level or project-specific?
+- **Use appropriate location**:
+  - Workspace rules: `.clinerules` (this file)
+  - Project rules: `[project]/rules/`
+  - Global templates: Reference but don't duplicate
+- **Maintain clear boundaries**: No cross-contamination between levels
+- **Document rationale**: Why is this rule at this level?
+
+## 5. Technology Stack Management
+**For each project**:
+- **Default stack**: Node.js + TypeScript for quick starts
+- **Python projects**: Use `uv` for fast environment setup
+- **Database**: SQLite for prototypes, PostgreSQL for serious projects
+- **Frontend**: React for web, React Native for mobile
+- **Testing**: Jest for JavaScript, pytest for Python
+
+## 6. Communication & Documentation
+**Workspace-level**:
+- **Project index**: Maintain `PROJECTS.md` with all active projects
+- **Quick references**: Create `QUICK-START.md` for common tasks
+- **Decision log**: Document major workspace decisions
+- **Template usage**: Track which templates are used where
+
+**Project-level**:
+- **README-first**: Every project must have clear README
+- **Setup scripts**: Include automated setup where possible
+- **Demo videos**: Create 2-minute demos for complex projects
+
+## 7. Cleanup & Maintenance Protocol
+**Weekly**:
+- **Archive completed experiments**: Move to `archived/` directory
+- **Update templates**: Based on project learnings
+- **Review memory bank**: Consolidate insights
+- **Clean dependencies**: Remove unused packages
+
+**Monthly**:
+- **Project audit**: Review all active projects
+- **Template refresh**: Update global templates
+- **Knowledge synthesis**: Create new patterns from learnings
+- **Performance review**: Optimize workspace setup
+
+## 8. Testing Strategy
+**For workspace-level changes**:
+- **Rule validation**: Test new rules on small projects first
+- **Template testing**: Verify templates work as expected
+- **Cross-project compatibility**: Ensure rules don't break existing projects
+- **Documentation testing**: Verify all instructions work
+
+**For project-level changes**:
+- **Use project workflows**: Follow project-specific testing
+- **Workspace integration**: Ensure changes don't affect other projects
+- **Knowledge capture**: Document testing insights
+
+## 9. Template Activation Workflow
+**To activate a template**:
+1. **Select template**: Choose from global templates
+2. **Customize**: Adapt for project needs
+3. **Test**: Verify template works in project context
+4. **Document**: Update project README with template usage
+5. **Share**: Contribute improvements back to global templates
+
+## 10. Emergency Protocols
+**When rules conflict**:
+1. **Workspace rules override**: `.clinerules` takes precedence
+2. **Project rules apply**: Within project boundaries
+3. **Global rules fallback**: For undefined behaviors
+4. **Document conflicts**: Update rules to prevent future issues
+
+## 🔧 Quick Commands
+```bash
+# List all projects
+find . -maxdepth 2 -name "README.md" | xargs dirname
+
+# Find recent experiments
+find . -name "experiment-*" -type d -mtime -7
+
+# Clean up archived projects
+mkdir -p archived && mv experiment-*-completed archived/
+
+# Update all project dependencies
+find . -name "package.json" -not -path "./node_modules/*" -exec npm update {} \;
+```
+
+## 📊 Success Metrics
+- **Project velocity**: Time from idea to working prototype
+- **Knowledge reuse**: How often patterns are reused
+- **Template effectiveness**: How quickly new projects start
+- **Cleanup efficiency**: Time to archive completed work
+- **Cross-pollination**: Insights shared between projects
+
+## 11. Automatic Memory System
+**Core Principle**: Memory updates are infrastructure, not optional tasks.
+
+**Automatic Triggers** (No manual intervention required):
+- **Every project action**: Creating, modifying, or completing projects
+- **Pattern discovery**: When reusable patterns are identified
+- **Learning moments**: When insights or solutions are found
+- **Template usage**: When templates are applied or improved
+- **Cross-project connections**: When relationships between projects are discovered
+
+**Memory Update Process** (Always active):
+1. **Capture**: Automatically record context, decisions, and outcomes
+2. **Synthesize**: Extract patterns and reusable knowledge
+3. **Update**: Modify relevant memory bank files
+4. **Cross-reference**: Link to related projects and patterns
+5. **Archive**: Move completed knowledge to archived state
+
+**Never requires**: "Should I save this?" - the system assumes everything significant is automatically remembered.
+
+**Memory locations**:
+- **Active**: `memory-bank/active/` - Current working knowledge
+- **Templates**: `memory-bank/templates/` - Reusable patterns
+- **Archived**: `memory-bank/archived/` - Completed/historical knowledge
