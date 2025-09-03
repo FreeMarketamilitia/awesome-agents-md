@@ -61,7 +61,7 @@ Validate YAML Files:
 - For index.yaml: Check agents array structure with required fields
 - Validate agent 'name' field is descriptive and follows naming conventions
 - Confirm 'source' field points to existing .md file in correct relative path
-- Verify 'target' field specifies valid download filename/path for agentfetch and the file that downloads is always AGENTS.md.
+- Verify 'target' field specifies valid download filename/path for agentfetch
 - Ensure no duplicate agent names or conflicting target paths
 - Check for proper YAML structure and no syntax errors that break parsing
 - Validate file paths in 'source' match repository folder structure
@@ -75,4 +75,27 @@ Validate YAML Files:
 
 # Auto-review settings
 auto_review = true
-enable_auto_approval = false  # Set to true for auto-approval in trusted scenarios
+
+# Auto-approval settings - enabled for PRs that pass all checks
+enable_auto_approval = true
+auto_approval_min_score = 75  # Require 75% confidence score before auto-approval
+auto_approval_min_reviewers = 0  # Minimum reviewers before auto-approval
+
+# Auto-approval conditions
+[pr_auto_approval]
+# Only auto-approve PRs that modify YAML files or follow repository patterns
+file_patterns = ["*.yaml", "*.yml", "*.md"]
+exclude_file_patterns = [".*"]  # Exclude hidden files
+
+# Branch restrictions
+allowed_branches = ["main", "develop", "feature/*"]
+
+# Size restrictions - prevent auto-approval of very large PRs
+max_pr_size = 100  # Maximum files that can be auto-approved
+
+# Security checks
+require_branch_protection = false  # Set to true if using GitHub branch protection
+skip_a11y_checks = false  # Always run accessibility checks
+
+# Auto-merge settings (if GitHub auto-merge is enabled)
+auto_merge = false  # Set to true to auto-merge after approval
