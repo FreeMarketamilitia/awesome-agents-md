@@ -1,0 +1,65 @@
+name: Auto PR, Validate, and Merge
+
+on:
+  create:
+    branches: '*'
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+jobs:
+  auto-pr:
+    if: github.event_name == 'create'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Create Pull Request
+        id: cpr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: ${{ github.ref_name }}
+          title: "Auto PR for branch ${{ github.ref_name }}"
+          body: "This PR was auto-created from branch `${{ github.ref_name }}`"
+          base: main
+
+      - name: Add automerge label
+        if: steps.cpr.outputs.pull-request-number != ''
+        run: gh pr edit ${{ steps.cpr.outputs.pull-request-number }} --add-label "automerge"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  validate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Validate repo against index.yaml
+        run: |
+          python .github/scripts/validate_index.py
+
+  auto-merge:
+    needs: validate
+    if: github.event_name == 'pull_request' && success()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Merge PR
+        run: gh pr merge ${{ github.event.pull_request.number }} --squash --auto
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
