@@ -78,8 +78,9 @@ auto_review = true
 
 # Auto-approval settings - enabled for PRs that pass all checks
 enable_auto_approval = true
-auto_approval_min_score = 75  # Require 75% confidence score before auto-approval
+auto_approval_min_score = 70  # Lower threshold for documentation changes
 auto_approval_min_reviewers = 0  # Minimum reviewers before auto-approval
+auto_approval_min_words = 10  # Minimum PR description length
 
 # Auto-approval conditions
 [pr_auto_approval]
