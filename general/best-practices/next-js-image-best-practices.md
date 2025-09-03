@@ -89,13 +89,13 @@ export default function HeroSection() {
 6. **Security Hardening**: Advanced XSS protection and content validation
 7. **Bundle Size Optimization**: Automatic image inlining for small images
 
-### Next.js 15 Configuration Architecture
+### Next.js Configuration Best Practices
 
 ```typescript
-// next.config.js - Next.js 15 Production-Optimized Configuration
+// next.config.js - Recommended Image Configuration
 export default {
   images: {
-    // Enhanced remote patterns with security validation
+    // Secure external image sources
     remotePatterns: [
       {
         protocol: 'https',
@@ -110,83 +110,12 @@ export default {
       },
     ],
 
-    // Next.js 15 enhanced device sizes with better responsive handling
+    // Responsive image breakpoints
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
 
-    // Advanced loader with CDN optimization
-    loader: 'default', // Next.js 15 has enhanced cloud provider integration
-
-    // Next.js 15 improved format support with priority
-    formats: ['image/avif', 'image/webp', 'image/jpeg', 'image/png'],
-
-    // Enhanced caching strategies
-    minimumCacheTTL: 86400, // 24 hours with smart invalidation
-
-    // Next.js 15 dynamic quality based on content
-    quality: 'auto', // AI-driven quality optimization
-
-    // Security enhancements
-    dangerouslyAllowSVG: false,
-    contentDispositionType: 'attachment',
-    contentSecurityPolicy: "default-src 'self'; img-src 'self' https://images.unsplash.com https://cdn.example.com; script-src 'self';",
-
-    // Next.js 15 new features
-    allowFutureImage: true, // Support for emerging formats
-    optimizeStdlibImages: true,
-    enableLoaderOptimization: true,
-  },
-
-  experimental: {
-    // Next.js 15 image-related enhancements
-    images: {
-      allowFutureImage: true,
-      optimizeImages: true,
-      turboImageOptimization: true,
-      imageProcessingQueue: 'parallel',
-    },
-
-    // Enhanced Turbopack integration
-    turbo: {
-      enable: true,
-      rules: {
-        '*.{png,jpg,jpeg,webp,avif,gif,svg}': {
-          as: '*.webp',
-          use: ['@vercel/turbopack/webpack/image-optimizer'],
-        },
-      },
-    },
-
-    // Performance optimizations
-    optimizePackageImports: [
-      '@vercel/analytics',
-      'next/image'
-    ],
-    optimizeCss: true,
-    scrollRestoration: true,
-  },
-
-  // Security and performance headers
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY',
-          },
-          {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
-          },
-        ],
-      },
-    ];
+    // Content Security Policy
+    contentSecurityPolicy: "default-src 'self'; img-src 'self' https://images.unsplash.com https://cdn.example.com; script-src 'none';",
   },
 };
 ```
@@ -397,109 +326,54 @@ export function PredictiveImageLoader({ sources, currentSrc, alt }: PredictiveIm
 
 ## Advanced Optimization Techniques
 
-### AI-Powered Image Optimization
+### Custom Image Processing
 
-Next.js 15 introduces machine learning-driven image optimization:
-
-#### Content-Aware Quality Adjustment
+Next.js automatically handles format optimization, but you can extend this with custom processing:
 
 ```typescript
-// lib/content-aware-optimization.ts
-export interface ImageContext {
-  contentType: 'text-heavy' | 'image-heavy' | 'mixed';
-  viewport: 'mobile' | 'tablet' | 'desktop';
-  connectionSpeed: 'slow' | 'fast';
-  screenDensity: number;
-}
+// lib/custom-image-processor.ts
+export class ImageProcessingProxy {
+  private static cache = new Map<string, string>();
 
-export function calculateOptimalQuality(context: ImageContext): number {
-  const baseQualities = {
-    'text-heavy': 95,
-    'image-heavy': 90,
-    'mixed': 92,
-  };
+  static async processImage(src: string, options: ImageProcessingOptions): Promise<string> {
+    const cacheKey = `${src}-${JSON.stringify(options)}`;
 
-  let quality = baseQualities[context.contentType];
-
-  // Adjust for viewport
-  if (context.viewport === 'mobile') {
-    quality -= 5;
-  }
-
-  // Adjust for connection speed
-  if (context.connectionSpeed === 'slow') {
-    quality -= 10;
-  }
-
-  // Adjust for screen density
-  if (context.screenDensity > 2) {
-    quality += 2;
-  }
-
-  return Math.max(70, Math.min(100, quality));
-}
-
-// Usage in component
-const optimizedQuality = calculateOptimalQuality({
-  contentType: 'mixed',
-  viewport: window.innerWidth < 768 ? 'mobile' : 'desktop',
-  connectionSpeed: navigator.connection?.effectiveType === 'slow-2g' ? 'slow' : 'fast',
-  screenDensity: window.devicePixelRatio || 1,
-});
-```
-
-### Next.js 15 Dynamic Format Selection
-
-```typescript
-// lib/format-selector.ts
-export type ImageFormat = 'avif' | 'webp' | 'jpeg' | 'png';
-
-interface BrowserSupport {
-  avif: boolean;
-  webp: boolean;
-  webpLossless: boolean;
-}
-
-export async function detectFormats(): Promise<BrowserSupport> {
-  const avif = await testImageFormat('data:image/avif;base64,...');
-  const webp = await testImageFormat('data:image/webp;base64,...');
-  const webpLossless = await testImageFormat('data:image/webp;base64,...', true);
-
-  return { avif, webp, webpLossless };
-}
-
-async function testImageFormat(dataUrl: string, lossless = false): Promise<boolean> {
-  return new Promise((resolve) => {
-    try {
-      const img = new Image();
-      // Set timeout to prevent hanging promises
-      const timeout = setTimeout(() => resolve(false), 3000);
-
-      // Clear timeout on success/error
-      img.onload = () => {
-        clearTimeout(timeout);
-        resolve(true);
-      };
-      img.onerror = () => {
-        clearTimeout(timeout);
-        resolve(false);
-      };
-
-      img.src = dataUrl;
-    } catch (error) {
-      resolve(false);
+    if (this.cache.has(cacheKey)) {
+      return this.cache.get(cacheKey)!;
     }
-  });
+
+    try {
+      // Process image with custom logic
+      const processedSrc = await this.applyProcessing(src, options);
+      this.cache.set(cacheKey, processedSrc);
+      return processedSrc;
+    } catch (error) {
+      console.error('Image processing failed:', error);
+      return src; // Fallback to original
+    }
+  }
+
+  private static async applyProcessing(src: string, options: ImageProcessingOptions): Promise<string> {
+    // Implementation for custom image processing
+    // This would typically call an external service or use a library
+    return src; // Return processed image URL
+  }
 }
 
-export function selectOptimalFormat(support: BrowserSupport): ImageFormat[] {
-  const formats: ImageFormat[] = [];
+// Quality adjustment based on device and connection
+export function getOptimalQuality(connection?: string, viewport?: number): number {
+  // Conservative quality adjustment based on documented Next.js patterns
+  const baseQuality = 85;
 
-  if (support.avif) formats.push('avif');
-  if (support.webp && (lossless || support.webpLossless)) formats.push('webp');
-  formats.push('jpeg'); // Fallback
+  if (viewport && viewport < 768) {
+    return Math.max(70, baseQuality - 10); // Lower for mobile
+  }
 
-  return formats;
+  if (connection && ['slow-2g', '2g'].includes(connection)) {
+    return Math.max(65, baseQuality - 20); // Lower for slow connections
+  }
+
+  return baseQuality;
 }
 ```
 
