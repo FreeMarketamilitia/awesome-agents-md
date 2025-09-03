@@ -26,13 +26,14 @@ Thank you for your interest in contributing to the Awesome Agents MD repository!
 - Follow the naming conventions used in the repository (e.g., lowercase with hyphens for file names).
 
 ### 5. Update index.yaml (if applicable)
-- If you're adding new guides that should be indexed, add an entry to `index.yaml` following the existing structure:
+- If you're adding new guides that should be indexed for downloading with `agentfetch`, add an entry to `index.yaml` following the existing structure:
   ```yaml
   agents:
     - name: "Your Guide Name"
       source: "path/to/your-file.md"
-      target: "AGENTS.md"
+      target: "filename.md"  # This will be the download path in the folder where agentfetch is run
   ```
+- The `target` field should specify the filename/path where the content will be saved locally when downloaded.
 
 ### 6. Commit Your Changes
 - Stage your changes: `git add .`
