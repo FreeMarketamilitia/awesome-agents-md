@@ -67,7 +67,7 @@ jobs:
 
   auto-merge:
     needs: [auto-pr, validate]
-    if: always() && needs.validate.result == 'success'
+    if: always() && needs.auto-pr.outputs.pr-number != '' && needs.validate.outputs.validation-passed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -100,7 +100,7 @@ jobs:
 
   cleanup:
     needs: [auto-pr, auto-merge]
-    if: always() && needs.auto-merge.result == 'merge-success'
+    if: always() && needs.auto-merge.outputs.merge-success == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
