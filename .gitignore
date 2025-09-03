@@ -51,3 +51,6 @@ node_modules/
 # Other common temporary files
 *.bak
 *.backup
+
+# Setup guides
+SETUP-PR-AGENT.md
