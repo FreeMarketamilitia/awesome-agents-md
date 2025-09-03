@@ -34,6 +34,37 @@ Focus documentation-specific review on:
 - Compliance with contribution guidelines
 """
 
+[pr_templates.docs]
+template = """
+Review for MD Files:
+- Title clarity and relevance to repository structure
+- Proper markdown formatting (headings, lists, code blocks, tables)
+- Grammar and writing clarity
+- Technical accuracy and completeness
+- Consistency with existing documentation style
+- Cross-references and internal/external links
+- Accessibility considerations (alt text, clear descriptions)
+- Adherence to contribution guidelines in CONTRIBUTING.md
+- Relevance to software development domains/frameworks
+- Appropriate file location within repository folder structure
+- Relevancy of content to agent guides (if applicable)
+"""
+
+[pr_templates.yaml]
+template = """
+Validate YAML Files:
+- YAML syntax correctness and proper formatting
+- Schema compliance for agents or configuration
+- Agent entry structure (name, source, target) if applicable
+- Source file existence verification
+- Target download path validity
+- Proper indentation and nesting
+- No sensitive information included
+- Consistency with existing YAML files in repository
+- Adequacy for index.yaml structure if updating agents
+- Relevancy to repository documentation categories
+"""
+
 # Auto-review settings
 auto_review = true
 enable_auto_approval = false  # Set to true for auto-approval in trusted scenarios
