@@ -76,27 +76,40 @@ Validate YAML Files:
 # Auto-review settings
 auto_review = true
 
-# Auto-approval settings - enabled for PRs that pass all checks
+# Auto-approval settings - optimized for documentation automation
 enable_auto_approval = true
-auto_approval_min_score = 70  # Lower threshold for documentation changes
-auto_approval_min_reviewers = 0  # Minimum reviewers before auto-approval
+auto_approval_min_score = 85  # Higher threshold to ensure quality
+auto_approval_min_reviewers = 0  # No minimum reviewers required
 auto_approval_min_words = 10  # Minimum PR description length
 
-# Auto-approval conditions
+# Auto-approval conditions - streamlined for documentation
 [pr_auto_approval]
-# Only auto-approve PRs that modify YAML files or follow repository patterns
-file_patterns = ["*.yaml", "*.yml", "*.md"]
+# Auto-approve PRs that modify documentation and config files
+file_patterns = ["*.yaml", "*.yml", "*.md", "*.toml"]
 exclude_file_patterns = [".*"]  # Exclude hidden files
 
-# Branch restrictions
-allowed_branches = ["main", "develop", "feature/*"]
+# Branch restrictions - allow feature branches and main
+allowed_branches = ["main", "develop", "feature/*", "test-auto-approval", "test-nextjs15-image-optimization"]
 
-# Size restrictions - prevent auto-approval of very large PRs
-max_pr_size = 100  # Maximum files that can be auto-approved
+# Size restrictions - optimized for documentation PRs
+max_pr_size = 200  # Allow larger documentation PRs
+max_added_lines = 10000  # Allow large documentation additions
 
-# Security checks
-require_branch_protection = false  # Set to true if using GitHub branch protection
-skip_a11y_checks = false  # Always run accessibility checks
+# Security checks - customized for documentation repo
+require_branch_protection = false
+skip_a11y_checks = false  # Run accessibility checks for documentation
 
-# Auto-merge settings (if GitHub auto-merge is enabled)
-auto_merge = false  # Set to true to auto-merge after approval
+# Auto-merge settings - ENABLED for qualifying PRs
+auto_merge = true  # Enable auto-merge after approval
+
+# Additional automation settings
+[pr_auto_approval.conditions]
+# Strict conditions for auto-merging
+require_all_tests_pass = true
+require_no_conflicts = true
+require_base_branch = "main"
+require_pr_label = false
+check_users_inactive = false
+
+# Post-merge cleanup
+delete_branch_after_merge = true  # Automatically delete branch after merge
