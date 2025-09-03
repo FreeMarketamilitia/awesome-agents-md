@@ -1,0 +1,53 @@
+# Python virtual environments
+venv/
+env/
+.venv/
+ENV/
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+
+# Package files
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Log and temporary files
+*.log
+.tmp
+temp/
+*.tmp
+
+# Coverage reports
+.coverage
+.htmlcov/
+.cache
+.tox/
+.pytest_cache/
+
+# Node modules (if any)
+node_modules/
+
+# Other common temporary files
+*.bak
+*.backup
