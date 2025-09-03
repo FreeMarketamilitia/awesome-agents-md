@@ -10,7 +10,7 @@ globs: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"]
 
 ## Overview of implementing image optimization in Next.js
 
-1. Install `@next/image` package and import Image component.
+1. Install `next/image` - the Image component is built into Next.js.
 2. Set up next.config.js for remote image loading.
 3. Use proper loading strategies (`lazy` vs `eager`).
 4. Implement responsive sizing with `sizes` attribute.
