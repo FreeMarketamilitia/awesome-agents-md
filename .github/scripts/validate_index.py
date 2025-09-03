@@ -66,22 +66,42 @@ def validate_index(index):
 
 def main():
     errors = []
-    errors.extend(check_branch_up_to_date())
 
+    print("🔍 Running pre-merge validation checks...")
+
+    # Critical check - ensure branch is not behind main
+    print("📋 Checking if branch is behind main...")
+    sync_errors = check_branch_up_to_date()
+    if sync_errors:
+        errors.extend(sync_errors)
+        print("❌ Branch sync check failed - merge would introduce conflicts or outdated code")
+    else:
+        print("✅ Branch is up-to-date with main")
+
+    # Load and validate index.yaml
+    print("📄 Validating index.yaml structure...")
     try:
         index = load_index()
     except Exception as e:
         print(f"❌ Failed to parse index.yaml: {e}")
         sys.exit(1)
 
+    # Validate files in repo
+    print("📁 Validating repository file structure...")
     errors.extend(validate_files())
     errors.extend(validate_index(index))
 
     if errors:
-        print("\n".join(errors))
+        print("\n❌ VALIDATION FAILED - The following issues must be resolved:")
+        for error in errors:
+            print(f"  {error}")
+        print("\n💡 To fix sync issues: rebase or merge main into your branch")
         sys.exit(1)
     else:
-        print("✅ Validation passed. Repo matches index.yaml rules and branch is up-to-date.")
+        print("\n✅ ALL VALIDATION CHECKS PASSED")
+        print("✅ Branch is up-to-date with main")
+        print("✅ Repository structure is valid")
+        print("✅ Ready for merge")
 
 if __name__ == "__main__":
     main()
