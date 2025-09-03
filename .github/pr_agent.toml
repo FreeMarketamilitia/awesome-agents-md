@@ -1,0 +1,39 @@
+[custom_review.instructions]
+# Custom instructions for documentation reviews
+pr_custom_review_instructions = """
+# Documentation Review Guidelines for Awesome Agents MD
+- Ensure content follows repository standards (see CONTRIBUTING.md)
+- Check for clear, concise writing with proper grammar
+- Verify markdown formatting (tables, code blocks, headings)
+- Validate YAML files (.yaml) for proper syntax and structure
+- Confirm consistent naming (lowercase with hyphens, no underscores)
+- Check folder structure adheres to README.md hierarchy
+- Look for broken internal/external links
+- Ensure content is relevant to software development guides
+- Review for accessibility (clear headings, alt text if images)
+- Validate that new agents are properly added to index.yaml
+"""
+
+[pr_reviewer]
+pr_reviewer.enabled = true
+customization_keywords = ["documentation", "guide", "domain", "framework", "workflow", "readme", "yaml", "markdown"]
+
+[pr_questions]
+# Disable code-specific questions
+pr_questions.enabled = false
+
+[pr_reviewer.pr_reviewer]
+extra_instructions = """
+Focus documentation-specific review on:
+- Content clarity and technical accuracy
+- Markdown table and list formatting
+- YAML syntax validation
+- Cross-references between guides
+- Consistency with existing documentation style
+- Relevance to repository categories (domains, frameworks, etc.)
+- Compliance with contribution guidelines
+"""
+
+# Auto-review settings
+auto_review = true
+enable_auto_approval = false  # Set to true for auto-approval in trusted scenarios
