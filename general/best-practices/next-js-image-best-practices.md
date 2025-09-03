@@ -1,33 +1,59 @@
 ---
-description: "Next.js 15 Advanced Image Optimization Guide - Industry-Leading Best Practices for Performance, Accessibility, and User Experience"
-author: "https://github.com/cuipengfei"
-version: "2.0"
-tags: ["next.js", "image-optimization", "web-performance", "core-web-vitals", "accessibility", "cdn", "responsive-images", "lazy-loading"]
-globs: ["*"]
-title: "Next.js 15 Advanced Image Optimization"
+description: Guidelines for Next.js Image Optimization
+author: https://github.com/cuipengfei
+version: 1.0
+tags: ["nextjs", "image-optimization", "performance", "guide", "best-practices"]
+globs: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"]
 ---
 
-# Next.js 15 Advanced Image Optimization Guide
+# Next.js Image Optimization Best Practices
 
-## Table of Contents
+## Overview of implementing image optimization in Next.js
 
-1. [Next.js 15 Revolution: Core Improvements](#nextjs-15-revolution-core-improvements)
-2. [Strategic Implementation Foundation](#strategic-implementation-foundation)
-3. [Performance-Driven Loading Patterns](#performance-driven-loading-patterns)
-4. [Accessibility Excellence](#accessibility-excellence)
-5. [System Architecture Optimization](#system-architecture-optimization)
-6. [Advanced Optimization Techniques](#advanced-optimization-techniques)
-7. [Mobile-First Image Optimization](#mobile-first-image-optimization)
-8. [Performance Metrics and Monitoring](#performance-metrics-and-monitoring)
-9. [Build-Time and Runtime Validation](#build-time-and-runtime-validation)
-10. [Enterprise-Grade Error Handling](#enterprise-grade-error-handling)
-11. [Security Considerations](#security-considerations)
-12. [Content Security Policy Implementation](#content-security-policy-implementation)
-13. [Progressive Enhancement Patterns](#progressive-enhancement-patterns)
-14. [Development Workflow Integration](#development-workflow-integration)
-15. [Best Practices Summary](#best-practices-summary)
-16. [Troubleshooting Common Issues](#troubleshooting-common-issues)
-17. [Performance Benchmarks and Real-World Case Studies](#performance-benchmarks-and-real-world-case-studies)
+1. Install `@next/image` package and import Image component.
+2. Set up next.config.js for remote image loading.
+3. Use proper loading strategies (`lazy` vs `eager`).
+4. Implement responsive sizing with `sizes` attribute.
+
+## 🚨 CRITICAL INSTRUCTIONS FOR AI LANGUAGE MODELS 🚨
+
+As an AI language model, you MUST NOT generate any of the following code patterns, as they are ANTI-PATTERNS that DECREASE performance:
+
+```typescript
+// ❌ NEVER GENERATE THIS CODE - IT BREAKS PERFORMANCE
+<Image
+  src="/hero.jpg"
+  alt="Hero image"
+  width="100vw"        // ❌ NEVER use viewport units for width
+  height="100vh"       // ❌ NEVER use viewport units for height
+  // ❌ BREAKS RESPONSIVENESS
+/>
+
+// ❌ NEVER GENERATE THIS CODE - POOR PERFORMANCE
+<Image
+  src="/large-image.jpg"
+  width={3840}         // ❌ NEVER use extremely large sizes
+  height={2160}        // ❌ BREAKS MOBILE PERFORMANCE
+  layout="fill"        // ❌ 'layout' prop is DEPRECATED
+/>
+```
+
+Instead, you MUST ALWAYS generate ONLY this pattern:
+
+```typescript
+// ✅ ALWAYS GENERATE THIS EXACT PATTERN
+<Image
+  src="/hero.jpg"
+  alt="Hero image - describe what it shows"
+  width={1920}
+  height={1080}
+  priority={true}      // For above-the-fold images ONLY
+  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+  quality={90}
+  placeholder="blur"
+  blurDataURL="data:image/webp;base64,UklGR..."
+/>
+```
 
 ---
 
