@@ -33,21 +33,21 @@ title: "Next.js 15 Advanced Image Optimization"
 
 Next.js 15 brings revolutionary image optimization capabilities that establish new industry standards. This comprehensive guide covers advanced techniques and cutting-edge practices for Next.js 15's enhanced image system, including improved async loading, better static analysis, enhanced CDN integration, and AI-powered optimization features.
 
-**Key Next.js 15 Image Enhancements:**
-- **Async Image Components**: Native async support with improved performance patterns
-- **Enhanced Static Analysis**: Better build-time optimization detection and warning systems
-- **Advanced CDN Integration**: Automatic image routing and optimization for major CDNs
-- **AI-Powered Placeholders**: Intelligent blur placeholder generation using machine learning
-- **Turbo Mode Optimization**: Turbopack integration for faster development image processing
-- **Remote Image Security**: Enhanced validation and protection for external image sources
-- **Device-Specific Optimization**: Automatic adaptation based on device capabilities
-- **Core Web Vitals Optimization**: Built-in LCP, CLS, and FID improvements
+**Key Next.js 15 Image Improvements:**
+- **Enhanced Image Component**: Improved optimization algorithms and better caching
+- **Better Static Analysis**: Improved build-time optimization detection
+- **Advanced CDN Integration**: Improved image routing capabilities
+- **Optimized Placeholders**: Better blur placeholder generation
+- **Turbo Mode Compatibility**: Full compatibility with Turbopack
+- **Enhanced Security**: Improved external image validation
+- **Responsive Optimization**: Better device-adaptive loading
+- **Performance Monitoring**: Enhanced Core Web Vitals support
 
-## Next.js 15 Revolution: Core Improvements
+## Next.js 15 Enhanced Image Capabilities
 
-### Advanced Image Component Architecture
+### Improved Image Component Features
 
-Next.js 15 introduces a completely revamped Image component with native async support and enhanced optimization algorithms:
+Next.js 15 offers enhanced Image component optimization with improved caching strategies:
 
 ```typescript
 // Next.js 15 Advanced Image Component
@@ -68,8 +68,8 @@ export default function HeroSection() {
         blurDataURL="data:image/webp;base64,UklGRlIAAABXRUJQVlA4IG4AAABQBQCdASoQAAgAAgA0Jar/AAAA/gBYAAAAAAABAJ0BKggACAACQAjQBKgAAACAA/wAUAA=="
         unoptimized={false}
         // Next.js 15 new features
-        onLoad={(e) => console.log('Image loaded successfully')}
-        onError={(e) => console.log('Image failed to load')}
+      onLoad={(e) => {/* Handle successful load */}}
+      onError={(e) => {/* Handle error appropriately */}}
         style={{ objectFit: 'cover' }}
       />
     </section>
@@ -258,8 +258,8 @@ function OptimizedImage({ src, alt, width, height, priority, index }: any) {
         boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
         transition: 'transform 0.2s ease-in-out',
       }}
-      onLoad={() => console.log(`Image ${index} loaded`)}
-      onError={(e) => console.error(`Failed to load image ${index}:`, e)}
+      onLoad={() => {/* Handle load success */}}
+      onError={() => {/* Handle load error */}}
       // Next.js 15 features
       loading={priority ? 'eager' : 'lazy'}
       decoding="async"
@@ -470,10 +470,25 @@ export async function detectFormats(): Promise<BrowserSupport> {
 
 async function testImageFormat(dataUrl: string, lossless = false): Promise<boolean> {
   return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve(true);
-    img.onerror = () => resolve(false);
-    img.src = dataUrl;
+    try {
+      const img = new Image();
+      // Set timeout to prevent hanging promises
+      const timeout = setTimeout(() => resolve(false), 3000);
+
+      // Clear timeout on success/error
+      img.onload = () => {
+        clearTimeout(timeout);
+        resolve(true);
+      };
+      img.onerror = () => {
+        clearTimeout(timeout);
+        resolve(false);
+      };
+
+      img.src = dataUrl;
+    } catch (error) {
+      resolve(false);
+    }
   });
 }
 
@@ -668,12 +683,25 @@ export class WebVitalsTracker {
   private static instance: WebVitalsTracker;
   private metrics: VitalMetrics[] = [];
   private imageMetrics: Map<string, any> = new Map();
+  private readonly MAX_METRICS_SIZE = 100;
 
   static getInstance(): WebVitalsTracker {
     if (!WebVitalsTracker.instance) {
       WebVitalsTracker.instance = new WebVitalsTracker();
     }
     return WebVitalsTracker.instance;
+  }
+
+  private limitMetricsSize() {
+    if (this.metrics.length > this.MAX_METRICS_SIZE) {
+      this.metrics = this.metrics.slice(-this.MAX_METRICS_SIZE);
+    }
+
+    if (this.imageMetrics.size > this.MAX_METRICS_SIZE) {
+      const keysToRemove = Array.from(this.imageMetrics.keys())
+        .slice(0, this.imageMetrics.size - this.MAX_METRICS_SIZE);
+      keysToRemove.forEach(key => this.imageMetrics.delete(key));
+    }
   }
 
   init() {
@@ -687,7 +715,7 @@ export class WebVitalsTracker {
   }
 
   private trackMetric(name: keyof VitalMetrics, value: number) {
-    console.log(`[WebVitals] ${name.toUpperCase()}:`, value);
+    // Removed console.log for production use
 
     const current: VitalMetrics = {
       cls: name === 'cls' ? value : 0,
@@ -699,6 +727,7 @@ export class WebVitalsTracker {
     };
 
     this.metrics.push(current);
+    this.limitMetricsSize(); // Prevent memory leaks
 
     // Send to analytics service
     this.sendToAnalytics(name, value);
