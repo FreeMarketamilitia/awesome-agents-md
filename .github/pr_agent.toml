@@ -78,6 +78,13 @@ auto_review = true
 
 # Auto-approval settings - optimized for documentation automation
 enable_auto_approval = true
+
+[config]
+enable_comment_approval = true    # Enable approval via comments
+enable_auto_approval = true      # Enable criteria-based auto-approval
+auto_approve_for_low_review_effort = 3  # Auto-approve when review effort score <= 3
+auto_approve_for_no_suggestions = true  # Auto-approve when improve tool finds no suggestions
+ensure_ticket_compliance = false  # Set to true if you want to enforce ticket compliance
 auto_approval_min_score = 70  # More realistic for documentation PRs
 auto_approval_min_reviewers = 0  # No minimum reviewers required
 auto_approval_min_words = 10  # Minimum PR description length
