@@ -42,7 +42,7 @@ agents:
     source: "workflows/cline-architecture.md"
     target: "AGENTS.md"
   - name: "Cline Continuous Improvement Protocol"
-    source: "workflows/cline-continuous-improvement-protocol.md"
+    source: "workflows/cline-continuous-improvement.md"
     target: "AGENTS.md"
   - name: "Cline for Research"
     source: "workflows/cline-for-research.md"
