@@ -13,6 +13,7 @@ jobs:
       pull-requests: read
     outputs:
       validation-passed: ${{ steps.validation.outputs.result }}
+      errors: ${{ steps.validation.outputs.errors }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,21 +32,32 @@ jobs:
         id: validation
         continue-on-error: true
         run: |
-          echo "🔍 Starting repository validation..."
-
-          if python .github/scripts/validate_index.py; then
-            echo "✅ Validation passed - all files accounted for"
+          echo "🔍 Running repository validation..."
+          ERRORS=$(python .github/scripts/validate_index.py)
+          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
+          if [ $? -eq 0 ]; then
             echo "result=true" >> $GITHUB_OUTPUT
           else
-            echo "❌ Validation failed - missing files or configuration errors"
             echo "result=false" >> $GITHUB_OUTPUT
-            exit 1
-          fi
+        shell: bash
+
+      - name: Post validation errors to PR
+        if: needs.validate.outputs.validation-passed == 'false'
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ⚠️ **Validation failed for this PR** ⚠️
+
+            ```text
+            ${{ steps.validation.outputs.errors }}
+            ```
 
   auto-merge:
     needs: validate
-    if: >
-      needs.validate.result == 'success' &&
+    if: |
+      needs.validate.outputs.validation-passed == 'true' &&
       contains(github.event.pull_request.labels.*.name, 'automerge') &&
       github.event.pull_request.draft == false &&
       !github.event.pull_request.merged
@@ -57,35 +69,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Check PR status
-        id: check-pr
-        run: |
-          echo "Checking PR #${{ github.event.pull_request.number }} ready for merge..."
-          echo "PR State: ${{ github.event.pull_request.state }}"
-          echo "PR Merged: ${{ github.event.pull_request.merged }}"
-          echo "PR Draft: ${{ github.event.pull_request.draft }}"
-          echo "Has automerge label: ${{ contains(github.event.pull_request.labels.*.name, 'automerge') }}"
-          echo "Validation passed: ${{ needs.validate.outputs.validation-passed }}"
-
       - name: Auto merge pull request
-        if: needs.validate.outputs.validation-passed == 'true'
         run: |
           echo "🚀 Merging PR #${{ github.event.pull_request.number }}..."
           gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch=false
           echo "✅ Successfully merged PR"
-
-      - name: Notify if validation failed
-        if: needs.validate.outputs.validation-passed != 'true'
-        run: |
-          echo "⏸️  Validation failed - auto-merge blocked for PR #${{ github.event.pull_request.number }}"
-          echo "Please review validation errors and fix any issues"
-
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   cleanup:
     needs: auto-merge
-    if: success() && needs.auto-merge.result == 'success'
+    if: needs.auto-merge.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -99,4 +93,3 @@ jobs:
           if [ "${{ github.event.pull_request.head.ref }}" != "main" ]; then
             echo "🧹 Cleaning up merged branch: ${{ github.event.pull_request.head.ref }}"
             git push origin --delete "${{ github.event.pull_request.head.ref }}" || echo "Branch already deleted or deletion not permitted"
-          fi
