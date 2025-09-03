@@ -1,0 +1,4 @@
+agents:
+  - name: "Next.js Supabase Guide"
+    source: "frameworks/nextjs/next-js-supabase.md"
+    target: "AGENTS.md"
