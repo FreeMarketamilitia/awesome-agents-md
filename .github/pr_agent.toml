@@ -37,32 +37,40 @@ Focus documentation-specific review on:
 [pr_templates.docs]
 template = """
 Review for MD Files:
-- Title clarity and relevance to repository structure
-- Proper markdown formatting (headings, lists, code blocks, tables)
-- Grammar and writing clarity
-- Technical accuracy and completeness
-- Consistency with existing documentation style
-- Cross-references and internal/external links
-- Accessibility considerations (alt text, clear descriptions)
-- Adherence to contribution guidelines in CONTRIBUTING.md
-- Relevance to software development domains/frameworks
-- Appropriate file location within repository folder structure
-- Relevancy of content to agent guides (if applicable)
+- Ensure file is placed in correct folder according to README.md hierarchy (domains/, frameworks/, workflows/, etc.)
+- Use lowercase filenames with hyphens only (no underscores or spaces)
+- Check title formatting and relevance to the folder category
+- Verify proper markdown syntax (headings, links, images, code blocks)
+- Confirm grammar, spelling, and writing clarity
+- Ensure technical accuracy matching repository standards
+- Verify consistency with established guide formats and styles
+- Check internal links to other repository files and external resources
+- Validate content relevance to software development best practices
+- Confirm adherence to contribution guidelines (see CONTRIBUTING.md)
+- Review structure matches agent/guide documentation format
+- Include Table of Contents or section headings as appropriate
+- Add alt text for any images included
+- Verify metadata or frontmatter if required by guide type
+- Ensure guide fits within repository's domain focus
 """
 
 [pr_templates.yaml]
 template = """
 Validate YAML Files:
-- YAML syntax correctness and proper formatting
-- Schema compliance for agents or configuration
-- Agent entry structure (name, source, target) if applicable
-- Source file existence verification
-- Target download path validity
-- Proper indentation and nesting
-- No sensitive information included
-- Consistency with existing YAML files in repository
-- Adequacy for index.yaml structure if updating agents
-- Relevancy to repository documentation categories
+- Verify valid YAML syntax and consistent formatting (2-space indentation)
+- For index.yaml: Check agents array structure with required fields
+- Validate agent 'name' field is descriptive and follows naming conventions
+- Confirm 'source' field points to existing .md file in correct relative path
+- Verify 'target' field specifies valid download filename/path for agentfetch
+- Ensure no duplicate agent names or conflicting target paths
+- Check for proper YAML structure and no syntax errors that break parsing
+- Validate file paths in 'source' match repository folder structure
+- Ensure no sensitive information is included in the configuration
+- Confirm YAML formatting is consistent with other repository settings files
+- Verify target paths are appropriate for the intended download location
+- Check for completeness of agent entries (all required fields present)
+- Validate schema compliance with repository's YAML configuration standards
+- Ensure changes to index.yaml properly register new documentation agents
 """
 
 # Auto-review settings
