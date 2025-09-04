@@ -23,6 +23,8 @@ jobs:
       contents: write
       pull-requests: write
       statuses: write
+    outputs:
+      pr_number: ${{ steps.create_pr.outputs.pull-request-number }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,85 +43,28 @@ jobs:
         id: validate
         run: python .github/validators/validate_index.py
 
-      - name: Create or update PR with labels
-        id: open_pr
+      - name: Create or update PR
+        id: create_pr
         if: success() && steps.validate.outcome == 'success'
-        uses: actions/github-script@v6
+        uses: peter-evans/create-pull-request@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const head = context.ref.replace('refs/heads/','');
-            if (head === 'main') {
-              core.info('Skipping PR for main branch');
-              return;
-            }
-            // Find existing PR from this branch
-            const prs = await github.rest.pulls.list({
-              owner, repo, state: 'open', head: `${owner}:${head}`, per_page: 1
-            });
-            let number = prs.data.length ? prs.data[0].number : null;
-            if (!number) {
-              const pr = await github.rest.pulls.create({
-                owner, repo, base: 'main', head,
-                title: `Auto PR: ${head}`,
-                body: `Auto-created PR for branch ${head}.`
-              });
-              number = pr.data.number;
-            }
-            await github.rest.issues.addLabels({
-              owner, repo, issue_number: number, labels: ['auto-validated', 'automerge']
-            });
-            core.setOutput('number', String(number));
-            core.info(`PR #${number} labeled and ready`);
+          token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
+          branch: auto-pr-${{ github.sha }}
+          base: main
+          title: Auto PR: ${{ github.ref_name }}
+          body: Auto-created PR for branch ${{ github.ref_name }}. Validated by workflow.
+          labels: auto-validated, automerge
+          delete-branch: true
+          commit-message: Auto commit for PR from ${{ github.ref_name }}
 
-      - name: Auto-merge PR after validation
-        id: auto_merge
-        if: success() && steps.validate.outcome == 'success'
-        uses: actions/github-script@v6
+      - name: Enable auto-merge
+        if: success() && steps.validate.outcome == 'success' && steps.create_pr.outputs.pull-request-number != ''
+        uses: peter-evans/enable-pull-request-automerge@v3
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const head = context.ref.replace('refs/heads/','');
-            if (head === 'main') {
-              core.info('Skipping auto-merge for main branch');
-              return;
-            }
+          token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
+          pull-request-number: ${{ steps.create_pr.outputs.pull-request-number }}
+          merge-method: squash
 
-            // Find the PR for this branch
-            const prs = await github.rest.pulls.list({
-              owner, repo, state: 'open', head: `${owner}:${head}`, per_page: 1
-            });
-
-            if (prs.data.length === 0) {
-              core.info('No PR found for this branch');
-              return;
-            }
-
-            const number = prs.data[0].number;
-            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
-
-            if (pr.state !== 'open' || pr.draft) {
-              core.info('PR not ready to merge');
-              return;
-            }
-
-            const res = await github.rest.pulls.merge({ owner, repo, pull_number: number, merge_method: 'squash' });
-            if (!res.data.merged) {
-              core.setFailed(`Merge failed: ${res.data.message}`);
-              return;
-            }
-
-            try {
-              await github.rest.git.deleteRef({ owner, repo, ref: `heads/${head}` });
-            } catch (e) {
-              core.info(`Branch delete failed (non-blocking): ${e.message}`);
-            }
-
-            core.info(`Successfully merged PR #${number} and cleaned up branch ${head}`);
   validate_pr:
     runs-on: ubuntu-latest
     if: >
@@ -163,29 +108,9 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - name: Merge PR via API
-        uses: actions/github-script@v6
+      - name: Enable auto-merge
+        uses: peter-evans/enable-pull-request-automerge@v3
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const number = context.payload.pull_request.number;
-
-            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
-            if (pr.state !== 'open' || pr.draft) {
-              core.setFailed('PR not ready to merge');
-              return;
-            }
-
-            const res = await github.rest.pulls.merge({ owner, repo, pull_number: number, merge_method: 'squash' });
-            if (!res.data.merged) {
-              core.setFailed(`Merge failed: ${res.data.message}`);
-              return;
-            }
-
-            try {
-              await github.rest.git.deleteRef({ owner, repo, ref: `heads/${pr.head.ref}` });
-            } catch (e) {
-              core.info(`Branch delete failed (non-blocking): ${e.message}`);
-            }
+          token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
+          pull-request-number: ${{ github.event.pull_request.number }}
+          merge-method: squash
