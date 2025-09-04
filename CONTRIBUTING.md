@@ -1,79 +1,222 @@
-# Contributing to Awesome Agents MD
+<!-- ========== HERO ========== -->
+<div align="center">
 
-Thank you for your interest in contributing to the Awesome Agents MD repository! This project aims to provide a comprehensive collection of guides, workflows, and resources for software development and related domains. Contributions are welcome and help make this repository a more valuable resource for the community.
+  <h1>🤝 Contributing to Awesome Agents MD</h1>
 
-## How to Contribute
+  <p><strong>Help build a modern, beautiful, and practical knowledge base that powers AgentFetch.</strong><br/>Everything is Markdown and indexed through <a href="index.yaml"><code>index.yaml</code></a> to generate root or nested <code>AGENTS.md</code> bundles.</p>
 
-### 1. Fork the Repository
-- Fork the repository on GitHub to your own GitHub account.
-- Clone your forked repository to your local machine: `git clone https://github.com/yourusername/awesome-agents-md.git`
+  <p>
+    <img alt="Good First Issues" src="https://img.shields.io/badge/Good%20First%20Issues-Welcome-4c1?style=for-the-badge">
+    <img alt="Docs: Markdown" src="https://img.shields.io/badge/Docs-Markdown-1f425f?style=for-the-badge">
+    <img alt="AgentFetch Ready" src="https://img.shields.io/badge/AgentFetch-Ready-0aa?style=for-the-badge">
+  </p>
 
-### 2. Set Up Your Development Environment
-- Ensure you have a Git client installed.
-- Open the project in your preferred code editor (e.g., VSCode, as referenced in many of our guides).
+  <p align="center">
+    <sub>First time here? Scroll to “Quick start” and “PR checklist”. Want to add content to bundles? See “index.yaml authoring”.</sub>
+  </p>
+</div>
 
-### 3. Create a New Branch
-- Create a new branch for your changes: `git checkout -b feature/your-feature-name`
-- This helps keep your changes organized and separate from the main branch.
+---
 
-### 4. Add or Edit Content
-- Navigate to the appropriate directory based on the topic of your contribution (see README.md for folder structure).
-- If you're adding a new guide or resource, create the necessary folder structure. For example:
-  - For a new domain (e.g., "cybersecurity"), create a new folder under `domains/` and add your content.
-  - For a new framework (e.g., "Angular"), create a folder under `frameworks/` and add your content.
-  - For language-specific content, add to the appropriate directory under `languages/`.
-- Write your content in Markdown format (.md files).
-- Follow the naming conventions used in the repository (e.g., lowercase with hyphens for file names).
+## Principles
 
-### 5. Update index.yaml (if applicable)
-- If you're adding new guides that should be indexed for downloading with `agentfetch`, add an entry to `index.yaml` following the existing structure:
+- Keep sources small, focused, and reusable
+- Prefer clarity over cleverness; write for agents and humans
+- Default to additive changes; avoid breaking links and paths
+- Embrace nested bundles: put guidance where the work happens
+
+---
+
+## What you can contribute
+
+- Guides and rulefiles under:
+  - <a href="domains/"><code>domains/</code></a>, <a href="frameworks/"><code>frameworks/</code></a>, <a href="general/best-practices/"><code>general/best-practices/</code></a>, <a href="workflows/"><code>workflows/</code></a>
+- Best-practice docs (naming, testing, security, workflows)
+- Examples/snippets and improved explanations
+- Updates to <a href="index.yaml"><code>index.yaml</code></a> to shape which bundles are produced and where
+
+If you’re unsure where something fits, open a small PR and we’ll help route it.
+
+---
+
+## Quick start
+
+1) Fork and clone  
+2) Create a branch:
+   - <code>git checkout -b docs/short-topic-name</code>  
+3) Add or update Markdown content in the right directory  
+4) If your content should be bundled by AgentFetch, add an entry in <a href="index.yaml"><code>index.yaml</code></a>  
+5) Commit and open a Pull Request
+
+---
+
+## PR checklist
+
+- Scope is focused and reviewable (small PRs > large)
+- Filenames: lowercase, hyphen-separated (e.g., <code>naming-conventions-best-practices.md</code>)
+- Content is succinct, actionable, and formatted for scan-ability
+- Links are relative and valid
+- If bundled, an <a href="index.yaml"><code>index.yaml</code></a> entry exists with the correct <code>target</code>
+
+Optional but helpful:
+- Add a brief rationale in the PR description
+- If you moved/renamed files, note it clearly
+
+---
+
+## Writing style guide
+
+- Use descriptive H2/H3 headings
+- Start with a short “When to use” or “Context” blurb
+- Prefer bullet lists and short paragraphs
+- Provide examples where possible
+- Keep tone direct and professional; avoid fluff
+- Use code fences for commands and YAML
+
+Example:
+
+```md
+## When to use
+Short context to help readers decide quickly.
+
+## Steps
+- Step 1
+- Step 2
+
+## Example
+```bash
+your command here
+```
+```
+
+---
+
+## Naming and structure
+
+- Lowercase, hyphenated filenames: <code>short-descriptive-name.md</code>
+- Place content in the closest, most relevant folder
+- Use <code>.gitkeep</code> for empty but intentional directories
+- Avoid duplication; refactor into shared docs if necessary
+
+---
+
+## index.yaml authoring
+
+AgentFetch reads <a href="index.yaml"><code>index.yaml</code></a> to build <code>AGENTS.md</code> bundles. Each entry maps one source to an output destination.
+
+```yaml
+agents:
+  - name: Human-friendly title
+    source: path/to/source.md        # relative to repo root
+    target: path/to/AGENTS.md        # where AgentFetch writes the bundle
+```
+
+Authoring rules:
+- Required non-empty strings: <code>name</code>, <code>source</code>, <code>target</code>
+- <code>target</code> ends with <code>.md</code>
+- Keep entries atomic to avoid cross-bundling surprises
+
+### Nested AGENTS.md with targets
+
+Create root or nested bundles by adjusting the <code>target</code> path.
+
+- Root-only bundle:
   ```yaml
   agents:
-    - name: "Your Guide Name"
-      source: "path/to/your-file.md"
-      target: "filename.md"  # This will be the download path in the folder where agentfetch is run
+    - name: Overview
+      source: docs/overview.md
+      target: AGENTS.md
   ```
-- The `target` field should specify the filename/path where the content will be saved locally when downloaded.
 
-### 6. Commit Your Changes
-- Stage your changes: `git add .`
-- Commit with a descriptive message: `git commit -m "Add new guide for [topic]"`
+- Per-domain bundles:
+  ```yaml
+  agents:
+    - name: Web Dev UI
+      source: domains/web-dev/cline-for-webdev-ui.md
+      target: domains/web-dev/AGENTS.md
 
-### 7. Push and Create a Pull Request
-- Push your branch to your forked repository: `git push origin feature/your-feature-name`
-- Create a Pull Request (PR) on the original repository, providing a clear description of your changes and why they're valuable.
+    - name: Slides
+      source: domains/presentation/comprehensive-slide-dev-guide.md
+      target: domains/presentation/AGENTS.md
+  ```
 
-## Guidelines for Contributions
+- Mixed (root + nested):
+  ```yaml
+  agents:
+    - name: Overview
+      source: docs/overview.md
+      target: AGENTS.md
 
-### Content Quality
-- Ensure your contribution is accurate, well-researched, and relevant to software development or related domains.
-- Write in clear, concise English. Use headings, lists, and code blocks where appropriate to improve readability.
-- Include examples or code snippets where relevant to demonstrate concepts.
+    - name: Web Dev UI
+      source: domains/web-dev/cline-for-webdev-ui.md
+      target: domains/web-dev/AGENTS.md
+  ```
 
-### File and Folder Structure
-- Create new folders as needed to organize content logically (e.g., if there's a new programming language, create a folder under `languages/`).
-- Use `.gitkeep` files in empty directories to maintain the folder structure in the repository.
-- Avoid creating redundant or overlapping content; check existing files to see if your contribution fits better within an existing guide.
+Nearest-file precedence:
+- Agents generally read the nearest <code>AGENTS.md</code> in the directory tree
+- Nested files take precedence; root acts as fallback
 
-### Naming Conventions
-- Use lowercase for file and folder names.
-- Use hyphens (-) instead of underscores (_) or spaces for multi-word names (e.g., `business-analysis.md`).
-- File names should be descriptive and indicate the content (e.g., `python-asyncio-guide.md`).
+---
 
-### Pull Request Best Practices
-- Provide a clear title and description for your PR.
-- If your changes are extensive, break them into multiple PRs for easier review.
-- Be open to feedback and willing to make revisions based on reviewer comments.
+## Commit messages
 
-## Reporting Issues
-- If you find bugs, inconsistencies, or areas for improvement, create an issue on GitHub with detailed information.
-- Label your issue appropriately (e.g., "bug", "enhancement", "documentation").
+- Use imperative mood and keep it short, e.g.:
+  - <code>docs: add quick start for AgentFetch targets</code>
+  - <code>guide: clarify naming conventions and examples</code>
+- Reference impacted areas (docs/guide/workflow/etc.)
+- If fixing a link or path, say so explicitly
+
+---
+
+## FAQ
+
+<details>
+  <summary><strong>Do I need a single monolithic AGENTS.md?</strong></summary>
+  <br/>
+  No. Keep a slim root and create nested subproject files by setting different <code>target</code> paths in <code>index.yaml</code>.
+</details>
+
+<details>
+  <summary><strong>Can I reuse the same source in multiple bundles?</strong></summary>
+  <br/>
+  Yes. Use multiple entries sharing the same <code>source</code> but with different <code>target</code> paths.
+</details>
+
+<details>
+  <summary><strong>Where should a new topic live?</strong></summary>
+  <br/>
+  Prefer the closest domain or framework directory. If in doubt, open the PR and we’ll help place it.
+</details>
+
+---
+
+## Reporting issues
+
+- Open a GitHub issue with a clear title and reproduction or context
+- Label as <em>bug</em>, <em>documentation</em>, or <em>enhancement</em>
+- Include links to impacted files where possible
+
+---
 
 ## Code of Conduct
-- Be respectful and inclusive in all interactions.
-- Focus on constructive feedback and collaboration.
+
+- Be respectful and inclusive
+- Prefer constructive, actionable feedback
+- Assume good intent; collaborate openly
+
+---
+
+## See also
+
+- Project entry point: <a href="README.md"><code>README.md</code></a>  
+- Manifest for bundles: <a href="index.yaml"><code>index.yaml</code></a>  
+- Example best practices:  
+  - <a href="general/best-practices/naming-conventions-best-practices.md"><code>general/best-practices/naming-conventions-best-practices.md</code></a>  
+  - <a href="general/best-practices/workflow-rules.md"><code>general/best-practices/workflow-rules.md</code></a>  
+  - <a href="general/best-practices/writing-effective-clinerules.md"><code>general/best-practices/writing-effective-clinerules.md</code></a>
+
+---
 
 ## Questions?
-If you have any questions about contributing, feel free to open an issue or start a discussion in the GitHub repository.
 
-We appreciate your contributions and look forward to building a better resource together!
+Open an issue or discussion in the repository. We appreciate your contributions — thanks for helping builders and agents ship with confidence.
