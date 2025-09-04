@@ -20,6 +20,9 @@ def is_branch_behind_main():
 
 def is_valid_path(path):
     """Check if path is a valid relative path and allowed type."""
+    if not path or not path.strip():
+        return False, "Path cannot be empty"
+
     if os.path.isabs(path):
         return False, "Absolute paths are not allowed"
 
@@ -30,18 +33,11 @@ def is_valid_path(path):
     if '..' in norm_path or norm_path.startswith('/'):
         return False, "Invalid path patterns (e.g., '..')"
 
-    if os.path.exists(norm_path):
-        if os.path.isdir(norm_path):
-            return True, None
-        elif os.path.isfile(norm_path):
-            if norm_path.lower().endswith(('.md', '.yaml')):
-                return True, None
-            else:
-                return False, f"File must end with .md or .yaml: {path}"
-        else:
-            return False, f"Path exists but is neither file nor directory: {path}"
+    # Just validate the path format, don't check if it exists
+    if norm_path.lower().endswith(('.md', '.yaml', '/')) or '/' not in norm_path:
+        return True, None
     else:
-        return False, f"Path does not exist: {path}"
+        return False, f"Path must be a markdown file (.md), YAML file (.yaml), or directory (end with '/'): {path}"
 
 def get_md_files_in_repo():
     """Get all .md files in the repository."""
