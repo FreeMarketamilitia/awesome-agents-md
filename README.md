@@ -268,10 +268,3 @@ If this helps you ship better agents and docs:
     <img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy me a coffee" />
   </a>
 </p>
-
----
-
-## Notes
-
-- The directory name <code>frameworks/netxjs/</code> is intentionally retained to avoid breaking links; it contains Next.js content such as <a href="frameworks/netxjs/next-js-supabase.md"><code>frameworks/netxjs/next-js-supabase.md</code></a>.
-- Placeholder files (<code>.gitkeep</code>) indicate curated spaces intended for growth.
