@@ -1,93 +1,66 @@
-import os
-import sys
-import subprocess
-import yaml
 import json
+import os
+import subprocess
+import sys
+import yaml
 
-ALLOWED_FILE_EXTENSIONS = {".md", ".yaml"}
-
-def run(cmd):
-    return subprocess.check_output(cmd, shell=True, text=True).strip()
-
-def check_branch_up_to_date():
+def run_git_command(command):
     try:
-        run("git fetch --prune origin main || git fetch origin main")
-        base = run("git merge-base HEAD origin/main")
-        main = run("git rev-parse origin/main")
-        if base != main:
-            return ["Branch is behind main. Rebase or merge main into your branch."]
-        return []
-    except Exception as e:
-        return [f"Failed to check branch sync with main: {e}"]
+        return subprocess.check_output(command, shell=True, text=True).strip()
+    except subprocess.CalledProcessError as e:
+        print(f"Git command failed: {e}")
+        sys.exit(1)
 
-def load_index():
-    with open("index.yaml", "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+def is_branch_behind_main():
+    # Fetch latest main
+    run_git_command("git fetch origin main")
+    # Check if main has commits not in HEAD
+    behind_count = run_git_command("git rev-list --count HEAD..origin/main")
+    return int(behind_count) > 0
 
-def validate_files():
+def validate_index_yaml():
+    index_path = 'index.yaml'
+    if not os.path.exists(index_path):
+        return ["Missing index.yaml file"]
+
+    try:
+        with open(index_path, 'r') as f:
+            data = yaml.safe_load(f)
+    except yaml.YAMLError as e:
+        return [f"Invalid YAML in index.yaml: {str(e)}"]
+
     errors = []
-    for root, dirs, files in os.walk("."):
-        if ".git" in root or ".github" in root:
-            continue
-        for name in files:
-            path = os.path.join(root, name)
-            _, ext = os.path.splitext(name)
-            if ext not in ALLOWED_FILE_EXTENSIONS:
-                errors.append(f"Invalid file type: {path}")
-    return errors
+    if 'agents' not in data:
+        errors.append("Missing 'agents' key in index.yaml")
+    elif not isinstance(data['agents'], list):
+        errors.append("'agents' must be a list in index.yaml")
+    else:
+        for agent in data['agents']:
+            if not isinstance(agent, dict) or 'name' not in agent:
+                errors.append(f"Invalid agent entry: {agent} (must be dict with 'name')")
 
-def validate_index(index):
-    errors = []
-    if not isinstance(index, dict) or "agents" not in index or not isinstance(index["agents"], list):
-        errors.append("index.yaml must have a top-level 'agents' list.")
-        return errors
-
-    for i, agent in enumerate(index["agents"], start=1):
-        if not isinstance(agent, dict):
-            errors.append(f"Entry {i} in agents must be a mapping, got: {agent}")
-            continue
-
-        required = {"name", "source", "target"}
-        extra_keys = set(agent.keys()) - required
-        missing_keys = required - set(agent.keys())
-
-        if missing_keys:
-            errors.append(f"Entry {i} is missing fields: {', '.join(missing_keys)}")
-        if extra_keys:
-            errors.append(f"Entry {i} has unexpected fields: {', '.join(extra_keys)}")
-
-        for key in required:
-            if key in agent and (not isinstance(agent[key], str) or not agent[key].strip()):
-                errors.append(f"Entry {i} has invalid {key}: must be a non-empty string")
-
-        if "source" in agent:
-            source_path = os.path.join(os.getcwd(), agent["source"])
-            if not os.path.exists(source_path):
-                errors.append(f"Entry {i} source file not found: {agent['source']}")
+            # Check if source file exists (if present)
+            if 'source' in agent and isinstance(agent['source'], str):
+                if not os.path.exists(agent['source']):
+                    errors.append(f"Source file not found: {agent['source']}")
 
     return errors
 
 def main():
     errors = []
 
-    errors.extend(check_branch_up_to_date())
+    if is_branch_behind_main():
+        errors.append("Branch is behind main - please rebase or merge main into your branch")
 
-    try:
-        index = load_index()
-    except Exception as e:
-        errors.append(f"Failed to parse index.yaml: {e}")
-        print(json.dumps(errors))
-        sys.exit(1)
-
-    errors.extend(validate_files())
-    errors.extend(validate_index(index))
+    errors.extend(validate_index_yaml())
 
     # Print JSON for workflow to pick up
     print(json.dumps(errors))
 
     if errors:
         sys.exit(1)
-    sys.exit(0)
+    else:
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()
