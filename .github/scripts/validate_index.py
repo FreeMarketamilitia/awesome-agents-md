@@ -40,8 +40,9 @@ def is_valid_path(path):
         return False, f"Path must be a markdown file (.md), YAML file (.yaml), or directory (end with '/'): {path}"
 
 def get_md_files_in_repo():
-    """Get all .md files in the repository."""
+    """Get all .md files in the repository, excluding documentation files."""
     md_files = []
+    # Files/patterns to exclude from validation
     files_to_skip = ['README.md', 'CONTRIBUTING.md']
 
     for root, _, files in os.walk('.'):
@@ -50,7 +51,7 @@ def get_md_files_in_repo():
                 # Convert to relative path from repo root
                 rel_path = os.path.normpath(os.path.join(root, file)).lstrip('./')
 
-                # Skip README and CONTRIBUTING files
+                # Skip README and CONTRIBUTING files (case insensitive)
                 if os.path.basename(rel_path).upper() in [f.upper() for f in files_to_skip]:
                     continue
 
