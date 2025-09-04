@@ -1,0 +1,36 @@
+name: 'Auto-Merge Pull Request'
+description: 'A GitHub Action to auto-merge pull requests using reitermarkus/automerge'
+author: 'FreeMarketamilitia'
+branding:
+  icon: 'git-merge'
+  color: 'green'
+
+inputs:
+  token:
+    description: 'GitHub token'
+    required: true
+  pull-request:
+    description: 'Pull request number to auto-merge (optional). If omitted, the action evaluates eligible PRs automatically on supported events.'
+    required: false
+  merge-method:
+    description: 'The merge method to use (merge, squash, rebase)'
+    required: false
+    default: 'merge'
+  required-labels:
+    description: 'Comma-separated list of labels required for auto-merge.'
+    required: false
+  do-not-merge-labels:
+    description: 'Comma-separated list of labels that prevent auto-merge.'
+    required: false
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Auto-Merge Pull Request
+      uses: reitermarkus/automerge@v2.8.0
+      with:
+        token: ${{ inputs.token }}
+        pull-request: ${{ inputs.pull-request }}
+        merge-method: ${{ inputs.merge-method }}
+        required-labels: ${{ inputs.required-labels }}
+        do-not-merge-labels: ${{ inputs.do-not-merge-labels }}
