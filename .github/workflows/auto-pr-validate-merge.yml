@@ -43,6 +43,7 @@ jobs:
         run: python .github/validators/validate_index.py
 
       - name: Create or update PR with labels
+        id: open_pr
         if: success()
         uses: actions/github-script@v6
         with:
@@ -71,10 +72,14 @@ jobs:
             await github.rest.issues.addLabels({
               owner, repo, issue_number: number, labels: ['auto-validated', 'automerge']
             });
+            core.setOutput('number', String(number));
+            core.info(`PR #${number} labeled and ready`);
       
       - name: Auto-merge PR after branch validation
         if: success() && (github.event_name == 'push' || github.event_name == 'create')
         uses: actions/github-script@v6
+        env:
+          PR_NUMBER: ${{ steps.open_pr.outputs.number }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -85,23 +90,48 @@ jobs:
               core.info('Skipping merge for main branch');
               return;
             }
-            // Find open PR for this head branch
-            const prs = await github.rest.pulls.list({
-              owner, repo, state: 'open', head: `${owner}:${head}`, per_page: 1
-            });
-            if (!prs.data.length) {
+            async function findPr() {
+              const n = process.env.PR_NUMBER && process.env.PR_NUMBER !== 'null' ? Number(process.env.PR_NUMBER) : null;
+              if (n) {
+                try {
+                  const { data } = await github.rest.pulls.get({ owner, repo, pull_number: n });
+                  return data.state === 'open' ? data : null;
+                } catch {}
+              }
+              const prs = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${head}`, per_page: 1 });
+              return prs.data[0] || null;
+            }
+            const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+            let pr = null;
+            for (let i = 0; i < 12; i++) { // up to ~60s
+              pr = await findPr();
+              if (pr) break;
+              core.info('Waiting for PR to be available...');
+              await sleep(5000);
+            }
+            if (!pr) {
               core.info('No open PR found to merge');
               return;
             }
-            const pr = prs.data[0];
-            const labels = pr.labels.map(l => l.name);
-            if (!labels.includes('automerge') || !labels.includes('auto-validated')) {
-              core.info('Required labels not present; skipping merge');
-              return;
+            const labelNames = pr.labels.map(l => typeof l === 'string' ? l : l.name);
+            const needLabels = [];
+            if (!labelNames.includes('automerge')) needLabels.push('automerge');
+            if (!labelNames.includes('auto-validated')) needLabels.push('auto-validated');
+            if (needLabels.length) {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: needLabels });
             }
             if (pr.draft || pr.merged) {
               core.info('PR is draft or already merged; skipping merge');
               return;
+            }
+            // refresh mergeability
+            for (let i = 0; i < 6; i++) {
+              const { data } = await github.rest.pulls.get({ owner, repo, pull_number: pr.number });
+              if (data.mergeable !== null && data.mergeable_state && data.mergeable_state !== 'unknown') {
+                pr = data;
+                break;
+              }
+              await sleep(3000);
             }
             try {
               const res = await github.rest.pulls.merge({ owner, repo, pull_number: pr.number, merge_method: 'squash' });
