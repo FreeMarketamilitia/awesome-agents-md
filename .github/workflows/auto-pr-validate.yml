@@ -29,8 +29,9 @@ jobs:
           PR_EXISTS=$(gh pr view "${{ github.ref_name }}" --json id -q '.id' 2>/dev/null || echo "")
           if [ -z "$PR_EXISTS" ]; then
             echo "Creating PR for branch ${{ github.ref_name }} against main..."
+            PR_TITLE="Auto PR: ${{ github.ref_name }} - $(date +'%Y-%m-%d')"
             gh pr create \
-              --title "Auto PR: ${{ github.ref_name }}" \
+              --title "$PR_TITLE" \
               --body "Automatically created PR for branch ${{ github.ref_name }}" \
               --base main \
               --head "${{ github.ref_name }}" \
@@ -53,6 +54,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
