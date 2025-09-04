@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 jobs:
-  validate-and-create-pr:
+  validate-branch-changes:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'push' || github.event_name == 'create' }}
     permissions:
@@ -41,17 +41,55 @@ jobs:
         continue-on-error: true
         run: |
           echo "🔍 Running validation for changes in ${{ github.ref_name }}..."
-          ERRORS_JSON=$(python .github/scripts/validate_index.py)
+          echo "📋 Environment details:"
+          echo "  - Branch: ${{ github.ref_name }}"
+          echo "  - SHA: ${{ github.sha }}"
+          echo "  - Event: ${{ github.event_name }}"
+          echo "  - Working directory: $(pwd)"
+          echo "  - Python version: $(python --version)"
+
+          echo "📂 Repository contents:"
+          ls -la | head -20
+
+          echo "📊 Git status:"
+          git status --porcelain
+
+          echo "🔀 Changes since main:"
+          git diff --name-only origin/main...HEAD || echo "Could not compare with origin/main"
+
+          echo "🐍 Running validation script..."
+          # Run validation with detailed error capture
+          set +e  # Don't exit on error yet
+          ERRORS_JSON=$(python -u .github/scripts/validate_index.py 2>&1)
           PY_EXIT_CODE=$?
+          set -e  # Restore exit on error
+
+          echo "📋 Validation script output:"
+          echo "$ERRORS_JSON"
+          echo ""
+          echo "🔍 Validation exit code: $PY_EXIT_CODE"
+          echo "🐛 Debug: ERRORS_JSON length: $(echo "$ERRORS_JSON" | wc -c)"
+          echo "🐛 Debug: ERRORS_JSON starts with '[': $(echo "$ERRORS_JSON" | head -c1)"
 
           if [ "$ERRORS_JSON" != "[]" ] && [ -n "$ERRORS_JSON" ]; then
-            ERRORS_FORMATTED=$(echo "$ERRORS_JSON" | jq -r '.[] | "- \(.)"')
+            ERRORS_FORMATTED=$(echo "$ERRORS_JSON" | jq -r '.[] | "- \(.)" 2>/dev/null || echo "❌ JSON parsing failed or no errors found"')
+            if [ "$ERRORS_FORMATTED" = "❌ JSON parsing failed or no errors found" ]; then
+              echo "⚠️  Warning: Could not parse validation output as JSON"
+              ERRORS_FORMATTED="❌ Validation failed (non-JSON output): $ERRORS_JSON"
+            fi
           else
             ERRORS_FORMATTED="✅ Validation passed - all changes are valid."
           fi
 
-          echo "Validation result:"
+          echo "📋 Final validation result:"
           echo "$ERRORS_FORMATTED"
+
+          # Add debug information
+          echo "🔧 Debug information:" >> $GITHUB_STEP_SUMMARY
+          echo "- Branch: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Exit code: $PY_EXIT_CODE" >> $GITHUB_STEP_SUMMARY
+          echo "- Raw output length: $(echo "$ERRORS_JSON" | wc -c)" >> $GITHUB_STEP_SUMMARY
 
           echo "errors<<EOF" >> $GITHUB_OUTPUT
           echo "$ERRORS_FORMATTED" >> $GITHUB_OUTPUT
@@ -61,6 +99,8 @@ jobs:
             echo "result=true" >> $GITHUB_OUTPUT
           else
             echo "result=false" >> $GITHUB_OUTPUT
+            # Save debug logs as artifacts for failed validations
+            echo "Saving debug logs for failed validation..." >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Set commit status
@@ -152,9 +192,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  validate-pr:
+  validate-pull-request:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: |
+      github.event_name == 'pull_request' &&
+      (github.event.action == 'synchronize' ||
+       github.event.action == 'opened' ||
+       github.event.action == 'reopened')
     permissions:
       contents: read
       pull-requests: write
@@ -174,20 +218,64 @@ jobs:
 
       - name: Validate PR changes
         id: pr-validation
+        continue-on-error: true
         run: |
           echo "🔍 Validating PR #${{ github.event.pull_request.number }}..."
+          echo "📋 PR Validation Details:"
+          echo "  - PR Number: ${{ github.event.pull_request.number }}"
+          echo "  - PR Title: ${{ github.event.pull_request.title }}"
+          echo "  - Branch: ${{ github.event.pull_request.head.ref }}"
+          echo "  - Base: ${{ github.event.pull_request.base.ref }}"
+          echo "  - SHA: ${{ github.event.pull_request.head.sha }}"
+          echo "  - Working directory: $(pwd)"
 
-          # Switch to PR branch for validation
+          echo "📂 Current branch info:"
+          git branch --show-current
+
+          echo "🔀 Switching to PR branch..."
           git checkout ${{ github.event.pull_request.head.sha }}
 
-          ERRORS_JSON=$(python .github/scripts/validate_index.py)
+          echo "📊 Files changed in PR:"
+          git diff --name-only HEAD~1 2>/dev/null || git diff --name-only ${{ github.event.pull_request.base.sha }}...'${{ github.event.pull_request.head.sha }}' || echo "Could not show changed files"
+
+          echo "🐍 Running validation script for PR..."
+          # Run validation with detailed error capture
+          set +e  # Don't exit on error yet
+          ERRORS_JSON=$(python -u .github/scripts/validate_index.py 2>&1)
           PY_EXIT_CODE=$?
+          set -e  # Restore exit on error
+
+          echo "📋 PR Validation script output:"
+          echo "$ERRORS_JSON"
+          echo ""
+          echo "🔍 PR Validation exit code: $PY_EXIT_CODE"
+          echo "🐛 Debug: ERRORS_JSON type check: $(echo "$ERRORS_JSON" | head -c10)"
 
           if [ "$ERRORS_JSON" != "[]" ] && [ -n "$ERRORS_JSON" ]; then
-            ERRORS_FORMATTED=$(echo "$ERRORS_JSON" | jq -r '.[] | "- \(.)"')
+            ERRORS_FORMATTED=$(echo "$ERRORS_JSON" | jq -r '.[] | "- \(.)" 2>/dev/null || echo "❌ JSON parsing failed or no errors found"')
+            if [ "$ERRORS_FORMATTED" = "❌ JSON parsing failed or no errors found" ]; then
+              echo "⚠️  Warning: Could not parse PR validation output as JSON"
+              ERRORS_FORMATTED="❌ PR Validation failed (non-JSON output): $ERRORS_JSON"
+            fi
           else
-            ERRORS_FORMATTED="✅ All validation checks passed!"
+            ERRORS_FORMATTED="✅ All PR validation checks passed!"
           fi
+
+          echo "📋 Final PR validation result:"
+          echo "$ERRORS_FORMATTED"
+
+          # Add debug information to step summary
+          echo "## PR Validation Debug Information" >> $GITHUB_STEP_SUMMARY
+          echo "- PR: #${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Branch: ${{ github.event.pull_request.head.ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: ${{ github.event.pull_request.head.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Exit code: $PY_EXIT_CODE" >> $GITHUB_STEP_SUMMARY
+          echo "- Output length: $(echo "$ERRORS_JSON" | wc -c)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Raw Output:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "$ERRORS_JSON" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
           echo "errors<<EOF" >> $GITHUB_OUTPUT
           echo "$ERRORS_FORMATTED" >> $GITHUB_OUTPUT
@@ -232,7 +320,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  auto-merge:
+  merge-approved-prs:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'pull_request' &&
