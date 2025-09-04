@@ -11,7 +11,7 @@ def run(cmd):
 
 def check_branch_up_to_date():
     try:
-        run("git fetch --prune --unshallow origin main || git fetch origin main")
+        run("git fetch --prune origin main || git fetch origin main")
         base = run("git merge-base HEAD origin/main")
         main = run("git rev-parse origin/main")
         if base != main:
