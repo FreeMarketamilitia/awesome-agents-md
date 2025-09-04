@@ -40,13 +40,25 @@ def is_valid_path(path):
         return False, f"Path must be a markdown file (.md), YAML file (.yaml), or directory (end with '/'): {path}"
 
 def get_md_files_in_repo():
-    """Get all .md files in the repository."""
+    """Get all .md files in the repository, excluding documentation files."""
     md_files = []
+    # Files/patterns to exclude from validation
+    files_to_skip = ['README.md', 'CONTRIBUTING.md']
+
     for root, _, files in os.walk('.'):
         for file in files:
             if file.lower().endswith('.md'):
                 # Convert to relative path from repo root
                 rel_path = os.path.normpath(os.path.join(root, file)).lstrip('./')
+
+                # Skip README and CONTRIBUTING files (case insensitive)
+                if os.path.basename(rel_path).upper() in [f.upper() for f in files_to_skip]:
+                    continue
+
+                # Skip hidden directories like .github
+                if rel_path.startswith('.'):
+                    continue
+
                 md_files.append(rel_path)
     return md_files
 
@@ -112,9 +124,22 @@ def validate_index_yaml():
                     if not isinstance(agent[field], str):
                         errors.append(f"Agent entry {i+1} '{field}' must be a string")
                     else:
-                        valid, msg = is_valid_path(agent[field])
-                        if not valid:
-                            errors.append(f"Agent entry {i+1} invalid '{field}': {msg}")
+                        # For 'target' field, we only check format, not file existence
+                        # since targets are output files created on user's system
+                        if field == 'target':
+                            # Quick format check for target field
+                            if not agent[field] or len(agent[field].strip()) == 0:
+                                errors.append(f"Agent entry {i+1} 'target' field cannot be empty")
+                            elif not os.path.isabs(agent[field]):
+                                # Normalize path for target
+                                norm_path = os.path.normpath(agent[field])
+                                if '..' in norm_path:
+                                    errors.append(f"Agent entry {i+1} invalid 'target': Dangerous path patterns (e.g., '..')")
+                        else:
+                            # For 'source' field, validate file existence
+                            valid, msg = is_valid_path(agent[field])
+                            if not valid:
+                                errors.append(f"Agent entry {i+1} invalid '{field}': {msg}")
 
     # Check if all .md files are referenced in index.yaml
     # Option 1: Check all .md files in the repo
@@ -133,8 +158,9 @@ def main():
 
     errors.extend(validate_index_yaml())
 
+    # Output as JSON array for the workflow script
+    print(json.dumps(errors))
     if errors:
-        print("\n".join(errors))  # Output as newline-separated for multi-line support
         sys.exit(1)
     else:
         sys.exit(0)
