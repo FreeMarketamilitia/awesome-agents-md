@@ -77,3 +77,39 @@ Your support keeps all content **free and accessible** while funding:
 **☕ Buy me a coffee:** Support ongoing development and help developers worldwide!
 
 [![](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/freemm)
+
+
+## Automation: Branch validation, PR creation, and auto-merge
+
+This repository uses a GitHub Actions workflow to automatically validate changes, open a pull request, and merge it when appropriate.
+
+Key files:
+- [.github/workflows/auto-pr-validate-merge.yml](.github/workflows/auto-pr-validate-merge.yml)
+- [.github/scripts/validate_index.py](.github/scripts/validate_index.py)
+
+Flow:
+- On branch creation or push (excluding main), validation runs.
+- If validation passes or is not required for the change scope, a PR is created automatically and labeled with:
+  - auto-validated
+  - automerge
+- A separate job merges the PR automatically when it is open, clean, and not a draft.
+
+Validation scope:
+- Runs only when:
+  - index.yaml changes, OR
+  - new Markdown files (.md) are added (excluding README.md and CONTRIBUTING.md).
+- Otherwise validation is skipped to keep the workflow fast and noise-free.
+
+Validation rules for index.yaml:
+- YAML must parse successfully.
+- agents must be a list.
+- Each agent must include non-empty string fields: name, source, target.
+- target must end with .md (download path); file existence is not checked.
+- Extra keys are allowed; only the required three are enforced.
+- Docs files are ignored for scope determination (README.md, CONTRIBUTING.md).
+- No repository-wide cross-referencing is performed.
+
+Operational notes:
+- The automerge label is applied automatically by the workflow, so no manual label application is needed.
+- To prevent auto-merge for a particular PR, mark it as a draft or remove the automerge label.
+- The previous "branch behind main" blocking behavior was removed (no rebase requirement).
