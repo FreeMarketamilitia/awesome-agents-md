@@ -3,8 +3,8 @@ name: Auto Create Pull Request
 on:
   push:
     branches:
-      - 'feature/**'
-      - 'bugfix/**'
+      - '**'
+      - '!main'
 
 jobs:
   create-pull-request:
