@@ -16,6 +16,10 @@ inputs:
     description: 'The branch to create for the pull request'
     required: false
     default: 'create-pull-request'
+  base:
+    description: 'The branch to create the pull request against'
+    required: false
+    default: 'main'
   title:
     description: 'The title of the pull request'
     required: false
@@ -32,6 +36,17 @@ inputs:
     description: 'The email of the committer'
     required: false
     default: 'github-actions[bot]@users.noreply.github.com'
+  labels:
+    description: 'Comma-separated list of labels to apply to the pull request'
+    required: false
+  delete-branch:
+    description: 'Whether to delete the branch after merging the pull request'
+    required: false
+    default: 'false'
+  commit-message:
+    description: 'Commit message for the pull request branch'
+    required: false
+    default: 'Auto commit for PR'
 
 outputs:
   pull-request-number:
@@ -48,7 +63,11 @@ runs:
         token: ${{ inputs.token }}
         path: ${{ inputs.path }}
         branch: ${{ inputs.branch }}
+        base: ${{ inputs.base }}
         title: ${{ inputs.title }}
         body: ${{ inputs.body }}
         committer: ${{ inputs.committer }}
         commit-email: ${{ inputs.commit-email }}
+        labels: ${{ inputs.labels }}
+        delete-branch: ${{ inputs.delete-branch }}
+        commit-message: ${{ inputs.commit-message }}
