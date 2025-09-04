@@ -15,7 +15,7 @@ inputs:
   merge-method:
     description: 'The merge method to use (merge, squash, rebase)'
     required: false
-    default: 'squash'
+    default: 'merge'
   required-labels:
     description: 'Comma-separated list of labels required for auto-merge.'
     required: false

@@ -4,12 +4,13 @@ on:
   push:
     branches-ignore:
       - main
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened, labeled, unlabeled, edited, ready_for_review]
   pull_request_review:
     types: [submitted, dismissed]
   check_suite:
     types: [completed]
+  status:
 
 permissions:
   contents: read
@@ -50,30 +51,30 @@ jobs:
       - name: Create or update PR
         id: create_pr
         if: success() && steps.validate.outcome == 'success'
-        uses: ./.github/actions/create-pull-request
+        uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ github.token }}
-          path: '.'
           branch: auto-pr-${{ github.sha }}
           base: main
           title: "Auto PR: ${{ github.ref_name }}"
           body: Auto-created PR for branch ${{ github.ref_name }}. Validated by workflow.
-          labels: "auto-validated,automerge"
+          labels: auto-validated, automerge
           delete-branch: true
           commit-message: Auto commit for PR from ${{ github.ref_name }}
 
       - name: Attempt automerge
         if: success() && steps.validate.outcome == 'success' && steps.create_pr.outputs.pull-request-number != ''
-        uses: ./.github/actions/automerge
+        uses: reitermarkus/automerge@v2.8.0
         with:
-          token: ${{ github.token }}
+          token: ${{ secrets.GH_PAT }}
           pull-request: ${{ steps.create_pr.outputs.pull-request-number }}
           merge-method: squash
+          required-labels: auto-validated,automerge
 
   validate_pr:
     runs-on: ubuntu-latest
     if: >
-      github.event_name == 'pull_request' &&
+      github.event_name == 'pull_request_target' &&
       (github.event.action == 'opened' ||
        github.event.action == 'reopened' ||
        github.event.action == 'synchronize')
@@ -104,7 +105,7 @@ jobs:
     needs: validate_pr
     runs-on: ubuntu-latest
     if: >
-      github.event_name == 'pull_request' &&
+      github.event_name == 'pull_request_target' &&
       contains(github.event.pull_request.labels.*.name, 'automerge') &&
       contains(github.event.pull_request.labels.*.name, 'auto-validated') &&
       github.event.pull_request.draft == false &&
@@ -114,12 +115,12 @@ jobs:
       pull-requests: write
     steps:
       - name: Attempt automerge
-        uses: ./.github/actions/automerge
+        uses: reitermarkus/automerge@v2.8.0
         with:
-          token: ${{ github.token }}
+          token: ${{ secrets.GH_PAT }}
           pull-request: ${{ github.event.pull_request.number }}
           merge-method: squash
-          required-labels: "automerge,auto-validated"
+          required-labels: auto-validated,automerge
 
   automerge_after_checks:
     runs-on: ubuntu-latest
@@ -129,8 +130,8 @@ jobs:
       pull-requests: write
     steps:
       - name: Attempt automerge (post-checks)
-        uses: ./.github/actions/automerge
+        uses: reitermarkus/automerge@v2.8.0
         with:
-          token: ${{ github.token }}
+          token: ${{ secrets.GH_PAT }}
           merge-method: squash
-          required-labels: "automerge,auto-validated"
+          required-labels: auto-validated,automerge
