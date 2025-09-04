@@ -29,5 +29,5 @@ jobs:
             This pull request was automatically generated to propose the changes in this branch.
 
             Please review and approve.
-          branch: 'auto-pr/{{ github.ref_name }}'
+          branch: auto-pr/${{ github.ref_name }}
           base: 'main'
