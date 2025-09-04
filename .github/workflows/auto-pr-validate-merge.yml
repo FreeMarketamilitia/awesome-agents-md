@@ -5,7 +5,11 @@ on:
     branches-ignore:
       - main
   pull_request:
-    types: [opened, synchronize, reopened, labeled, ready_for_review]
+    types: [opened, synchronize, reopened, labeled, unlabeled, edited, ready_for_review]
+  pull_request_review:
+    types: [submitted, dismissed]
+  check_suite:
+    types: [completed]
 
 permissions:
   contents: read
@@ -48,21 +52,21 @@ jobs:
         if: success() && steps.validate.outcome == 'success'
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
+          token: ${{ github.token }}
           branch: auto-pr-${{ github.sha }}
           base: main
-          title: Auto PR: ${{ github.ref_name }}
+          title: "Auto PR: ${{ github.ref_name }}"
           body: Auto-created PR for branch ${{ github.ref_name }}. Validated by workflow.
           labels: auto-validated, automerge
           delete-branch: true
           commit-message: Auto commit for PR from ${{ github.ref_name }}
 
-      - name: Enable auto-merge
+      - name: Attempt automerge
         if: success() && steps.validate.outcome == 'success' && steps.create_pr.outputs.pull-request-number != ''
-        uses: peter-evans/enable-pull-request-automerge@v3
+        uses: reitermarkus/automerge@v2.8.0
         with:
-          token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
-          pull-request-number: ${{ steps.create_pr.outputs.pull-request-number }}
+          token: ${{ github.token }}
+          pull-request: ${{ steps.create_pr.outputs.pull-request-number }}
           merge-method: squash
 
   validate_pr:
@@ -108,9 +112,22 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - name: Enable auto-merge
-        uses: peter-evans/enable-pull-request-automerge@v3
+      - name: Attempt automerge
+        uses: reitermarkus/automerge@v2.8.0
         with:
-          token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
-          pull-request-number: ${{ github.event.pull_request.number }}
+          token: ${{ github.token }}
+          pull-request: ${{ github.event.pull_request.number }}
+          merge-method: squash
+
+  automerge_after_checks:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'check_suite' || github.event_name == 'status' || github.event_name == 'pull_request_review'
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Attempt automerge (post-checks)
+        uses: reitermarkus/automerge@v2.8.0
+        with:
+          token: ${{ github.token }}
           merge-method: squash
