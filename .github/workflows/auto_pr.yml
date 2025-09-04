@@ -1,0 +1,33 @@
+name: Auto Create Pull Request
+
+on:
+  push:
+    branches:
+      - 'feature/**' # Triggers on any branch starting with 'feature/'
+      - 'bugfix/**' # Triggers on any branch starting with 'bugfix/'
+
+jobs:
+  create-pull-request:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required permission for the action to create the branch and commit
+      pull-requests: write # Required permission for the action to create the pull request
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # Fetches full history for proper diffing
+
+      - name: Create Pull Request
+        id: create_pr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'feat: Automated PR for new branch'
+          title: 'Automated PR for feature branch'
+          body: |
+            This pull request was automatically generated to propose the changes in this branch.
+
+            Please review and approve.
+          branch: 'auto-pr/{{ github.ref_name }}'
+          base: 'main'
