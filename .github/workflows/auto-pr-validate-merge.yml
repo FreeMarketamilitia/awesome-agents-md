@@ -12,6 +12,12 @@ on:
 permissions:
   contents: read
 
+# Global environment variables for debugging
+env:
+  DEBUG_LEVEL: ${{ github.event_name == 'workflow_dispatch' && vars.DEBUG_LEVEL || 'INFO' }}
+  ENABLE_ARTIFACTS: 'true'
+  LOG_ARTIFACT_RETENTION_DAYS: '7'
+
 jobs:
   validate-branch-changes:
     runs-on: ubuntu-latest
@@ -21,20 +27,110 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
-      - name: Checkout branch
+      - name: Initialize debug environment
+        run: |
+          echo "::group::🚀 Initializing Debug Environment"
+          echo "📅 $(date '+%Y-%m-%d %H:%M:%S %Z')"
+          echo "💻 Runner: $RUNNER_NAME (OS: $RUNNER_OS, Arch: $RUNNER_ARCH)"
+          echo "📊 Debug Level: $DEBUG_LEVEL"
+          echo "🎯 Job: ${{ github.job }}"
+          echo "🏷️  Event: ${{ github.event_name }}"
+          echo "⭐ Actor: ${{ github.actor }}"
+          echo "📂 Workspace: $RUNNER_WORKSPACE"
+
+          # System information logging
+          echo "💽 Disk usage:" >> $GITHUB_STEP_SUMMARY
+          df -h / | head -n 2 >> $GITHUB_STEP_SUMMARY
+          echo "🧠 Memory usage:" >> $GITHUB_STEP_SUMMARY
+          free -h >> $GITHUB_STEP_SUMMARY
+          echo "🔥 CPU info:" >> $GITHUB_STEP_SUMMARY
+          nproc --all && echo "- CPU cores available" >> $GITHUB_STEP_SUMMARY
+          echo "::endgroup::"
+
+      - name: Checkout branch with debugging
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up Python
+      - name: Post-checkout debug analysis
+        continue-on-error: true
+        run: |
+          echo "::group::🔍 Post-Checkout Repository Analysis"
+          echo "📂 Current directory: $(pwd)"
+          echo "📋 Git version: $(git --version)"
+          echo "🔗 Remote URL: $(git remote get-url origin)"
+          echo "🌿 Current branch: $(git branch --show-current)"
+          echo "📝 Recent commits:"
+          git log --oneline -5
+          echo ""
+          echo "📊 Repository status:"
+          git status
+          echo ""
+          echo "📂 Directory structure (top level):"
+          ls -la | head -15
+          echo ""
+          echo "📂 Hidden files:"
+          ls -la | grep "^\." | head -10
+          echo ""
+          echo "📊 Branch information:" >> $GITHUB_STEP_SUMMARY
+          echo "- Current: $(git branch --show-current)" >> $GITHUB_STEP_SUMMARY
+          echo "- Remote tracking: $(git branch -vv | grep "*" | cut -d'[' -f2 | cut -d']' -f1)" >> $GITHUB_STEP_SUMMARY
+          echo "- Ahead/Behind: $(git rev-list --left-right --count origin/${{ github.ref_name }}...${{ github.ref_name }} 2>/dev/null || echo 'unknown')" >> $GITHUB_STEP_SUMMARY
+          echo "::endgroup::"
+
+      - name: Set up Python with debugging
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
-      - name: Install dependencies
+      - name: Post-Python setup debug analysis
+        continue-on-error: true
         run: |
-          pip install pyyaml
-          sudo apt-get update && sudo apt-get install -y jq
+          echo "::group::🐍 Python Environment Debug Info"
+          echo "🐍 Python version: $(python --version)"
+          echo "🐍 Python path: $(python -c 'import sys; print(sys.executable)')"
+          echo "🐍 Python location: $(which python)"
+          echo "🐍 Python3 location: $(which python3)"
+
+          echo "📦 Python packages (pip list):"
+          python -m pip list --format=freeze | head -10
+
+          echo "📂 Python environment variables:"
+          env | grep -E "(PYTHON|py)" | head -10
+
+          echo "💰 Checking pip cache:" >> $GITHUB_STEP_SUMMARY
+          python -m pip cache info >> $GITHUB_STEP_SUMMARY
+          echo "::endgroup::"
+
+      - name: Install dependencies with debug logging
+        run: |
+          echo "::group::📦 Installing Dependencies Debug"
+
+          # Pre-installation checks
+          echo "🔍 Pre-installation checks:"
+          echo "  - Space before install: $(df -h . | tail -n1 | awk '{print $4}')"
+          echo "  - pip version: $(python -m pip --version)"
+          echo "  - jq installed: $(which jq || echo 'not found')"
+          echo "  - apt cache: $(ls /var/lib/apt/lists | wc -l) packages cached"
+
+          echo "📥 Starting installations..."
+
+          # Python packages
+          echo "🐍 Installing Python packages..."
+          python -m pip install pyyaml --verbose --no-cache-dir
+
+          # System packages
+          echo "💻 Installing system packages..."
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+          echo "📊 Post-installation verification:"
+          echo "  - pyyaml installed: $(python -c 'import yaml; print("✅")' 2>/dev/null || echo '❌')"
+          echo "  - jq installed: $(jq --version || echo 'not found')"
+          echo "  - Space after install: $(df -h . | tail -n1 | awk '{print $4}')"
+
+          echo "📦 Installation complete!" >> $GITHUB_STEP_SUMMARY
+          echo "::endgroup::"
 
       - name: Validate branch (only changed files)
         id: validation
@@ -97,11 +193,108 @@ jobs:
 
           if [ $PY_EXIT_CODE -eq 0 ]; then
             echo "result=true" >> $GITHUB_OUTPUT
+            echo "🎉 Validation completed successfully!"
+            echo "## ✅ Validation Results" >> $GITHUB_STEP_SUMMARY
+            echo "Status: **PASSED**" >> $GITHUB_STEP_SUMMARY
+            echo "Exit Code: $PY_EXIT_CODE" >> $GITHUB_STEP_SUMMARY
+            echo "Duration: $(($(date +%s) - $(stat -c %Y .github/scripts/validate_index.py 2>/dev/null || echo '0')))" >> $GITHUB_STEP_SUMMARY
           else
             echo "result=false" >> $GITHUB_OUTPUT
-            # Save debug logs as artifacts for failed validations
-            echo "Saving debug logs for failed validation..." >> $GITHUB_STEP_SUMMARY
+            echo "❌ Validation failed with exit code $PY_EXIT_CODE"
+
+            # Enhanced debug information for failures
+            echo "## ❌ Validation Results" >> $GITHUB_STEP_SUMMARY
+            echo "Status: **FAILED**" >> $GITHUB_STEP_SUMMARY
+            echo "Exit Code: $PY_EXIT_CODE" >> $GITHUB_STEP_SUMMARY
+            echo "Duration: $(($(date +%s) - $(stat -c %Y .github/scripts/validate_index.py 2>/dev/null || echo '0')))" >> $GITHUB_STEP_SUMMARY
+
+            # Additional failure diagnostics
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔧 Detailed Failure Diagnostics" >> $GITHUB_STEP_SUMMARY
+            echo "**Script Path:** $PWD/.github/scripts/validate_index.py" >> $GITHUB_STEP_SUMMARY
+            echo "**Script Permissions:** $(ls -la .github/scripts/validate_index.py)" >> $GITHUB_STEP_SUMMARY
+            echo "**Script Size:** $(wc -c < .github/scripts/validate_index.py) bytes" >> $GITHUB_STEP_SUMMARY
+
+            # Python execution diagnostics
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🐍 Python Execution Diagnostics" >> $GITHUB_STEP_SUMMARY
+            python -c "import sys; print('Python Version:', sys.version)" >> $GITHUB_STEP_SUMMARY
+            python -c "import sys; print('Python Path:'); [print(p) for p in sys.path]" >> $GITHUB_STEP_SUMMARY
+
+            # Check for common Python issues
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🚨 Potential Issues" >> $GITHUB_STEP_SUMMARY
+            if python -c "import yaml" 2>/dev/null; then
+              echo "✅ PyYAML import successful" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ PyYAML import failed" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            if [ -f "index.yaml" ]; then
+              echo "✅ index.yaml file exists" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ index.yaml file not found" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            # Environment and file system diagnostics
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 📂 File System Diagnostics" >> $GITHUB_STEP_SUMMARY
+            echo "**Working Directory:** $PWD" >> $GITHUB_STEP_SUMMARY
+            echo "**Directory Permissions:** $(ls -ld .)" >> $GITHUB_STEP_SUMMARY
+            echo "**Validation Script Location:** $(realpath .github/scripts/validate_index.py 2>/dev/null)" >> $GITHUB_STEP_SUMMARY
+
+            echo "📤 Preparing debug artifacts..." >> $GITHUB_STEP_SUMMARY
           fi
+
+          # Always log completion information
+          echo "📊 Final Status:" >> $GITHUB_STEP_SUMMARY
+          echo "- Completed at: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "- Total runtime: $(($(date +%s) - SECONDS)) seconds" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload debug artifacts on failure
+        if: steps.validation.outputs.result == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-debug-logs-${{ github.run_id }}
+          path: |
+            $RUNNER_WORKSPACE
+            !**/node_modules
+            !**/.git
+          retention-days: ${{ env.LOG_ARTIFACT_RETENTION_DAYS }}
+          if-no-files-found: warn
+
+      - name: Upload validation script debug info
+        if: steps.validation.outputs.result == 'false'
+        run: |
+          echo "::group::📋 Validation Script Debug Information"
+          echo "🗂️ Validation script path: .github/scripts/validate_index.py"
+          echo "📏 Script size: $(stat -f%z .github/scripts/validate_index.py 2>/dev/null || stat -c%s .github/scripts/validate_index.py)"
+          echo "🔑 Script permissions: $(stat -f%Lp .github/scripts/validate_index.py 2>/dev/null || stat -c%a .github/scripts/validate_index.py)"
+          echo "🕒 Script modification time: $(stat -f%Sm .github/scripts/validate_index.py 2>/dev/null || stat -c%y .github/scripts/validate_index.py)"
+
+          echo "📄 First 20 lines of script:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`python" >> $GITHUB_STEP_SUMMARY
+          head -n 20 .github/scripts/validate_index.py >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+          echo "📋 Directory listing:" >> $GITHUB_STEP_SUMMARY
+          find .github/scripts -type f -name "*.py" -ls >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "Could not list .github/scripts directory"
+
+          # Save debug information to a file for artifact upload
+          mkdir -p debug-artifact
+          echo "# Validation Script Debug Information" > debug-artifact/script-debug.md
+          echo "Generated: $(date)" >> debug-artifact/script-debug.md
+          echo "Run ID: ${{ github.run_id }}" >> debug-artifact/script-debug.md
+          echo "" >> debug-artifact/script-debug.md
+          echo "## Script Details" >> debug-artifact/script-debug.md
+          echo "- Path: .github/scripts/validate_index.py" >> debug-artifact/script-debug.md
+          echo "- Size: $(stat -c%s .github/scripts/validate_index.py 2>/dev/null || echo 'unknown')" >> debug-artifact/script-debug.md
+          echo "- Permissions: $(stat -c%a .github/scripts/validate_index.py 2>/dev/null || echo 'unknown')" >> debug-artifact/script-debug.md
+          echo "" >> debug-artifact/script-debug.md
+          echo "## Execution Environment" >> debug-artifact/script-debug.md
+          python --version >> debug-artifact/script-debug.md 2>&1
+          python -m pip list >> debug-artifact/script-debug.md 2>&1
+          echo "::endgroup::"
 
       - name: Set commit status
         uses: actions/github-script@v6
@@ -203,18 +396,127 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - name: Checkout PR
+      - name: Initialize PR debug environment
+        run: |
+          echo "::group::🚀 Initializing PR Debug Environment"
+          echo "📅 $(date '+%Y-%m-%d %H:%M:%S %Z')"
+          echo "💻 Runner: $RUNNER_NAME (OS: $RUNNER_OS, Arch: $RUNNER_ARCH)"
+          echo "📊 Debug Level: $DEBUG_LEVEL"
+          echo "🎯 Job: ${{ github.job }}"
+          echo "🏷️  Event: ${{ github.event_name }}"
+          echo "⭐ Actor: ${{ github.actor }}"
+          echo "📂 Workspace: $RUNNER_WORKSPACE"
+          echo "🔗 PR: #${{ github.event.pull_request.number }}"
+          echo "🌿 Base Branch: ${{ github.event.pull_request.base.ref }}"
+          echo "🌱 Head Branch: ${{ github.event.pull_request.head.ref }}"
+
+          # System information logging
+          echo "💽 Disk usage:" >> $GITHUB_STEP_SUMMARY
+          df -h / | head -n 2 >> $GITHUB_STEP_SUMMARY
+          echo "🧠 Memory usage:" >> $GITHUB_STEP_SUMMARY
+          free -h >> $GITHUB_STEP_SUMMARY
+          echo "🔥 CPU info:" >> $GITHUB_STEP_SUMMARY
+          nproc --all && echo "- CPU cores available" >> $GITHUB_STEP_SUMMARY
+
+          # PR-specific information
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📋 Pull Request Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **PR Number:** #${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Title:** ${{ github.event.pull_request.title }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Base:** ${{ github.event.pull_request.base.ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Head:** ${{ github.event.pull_request.head.ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **SHA:** ${{ github.event.pull_request.head.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Action:** ${{ github.event.action }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Draft:** ${{ github.event.pull_request.draft }}" >> $GITHUB_STEP_SUMMARY
+          echo "::endgroup::"
+
+      - name: Checkout PR with debugging
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up Python
+      - name: Post-PR-checkout debug analysis
+        continue-on-error: true
+        run: |
+          echo "::group::🔍 Post-PR Checkout Repository Analysis"
+          echo "📂 Current directory: $(pwd)"
+          echo "📋 Git version: $(git --version)"
+          echo "🔗 Remote URL: $(git remote get-url origin)"
+          echo "🌿 Current branch: $(git branch --show-current)"
+          echo "📝 Current commit:"
+          git show --oneline -1
+          echo ""
+          echo "📊 Repository status:"
+          git status
+          echo ""
+          echo "📂 Directory structure (top level):"
+          ls -la | head -15
+          echo ""
+          echo "📊 PR Branch Information:" >> $GITHUB_STEP_SUMMARY
+          echo "- Current: $(git branch --show-current)" >> $GITHUB_STEP_SUMMARY
+          echo "- Remote tracking: $(git branch -vv | grep "*" | cut -d'[' -f2 | cut -d']' -f1 2>/dev/null || echo 'not set')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🏗️ Repository Structure Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total files:** $(find . -type f | wc -l)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total directories:** $(find . -type d | wc -l)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Scripts directory:** $(ls .github/scripts/ 2>/dev/null | wc -l) files" >> $GITHUB_STEP_SUMMARY
+          echo "::endgroup::"
+
+      - name: Set up Python for PR validation
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
-      - name: Install dependencies
-        run: pip install pyyaml
+      - name: Post-Python setup debug analysis (PR)
+        continue-on-error: true
+        run: |
+          echo "::group::🐍 Python Environment Debug Info (PR)"
+          echo "🐍 Python version: $(python --version)"
+          echo "🐍 Python path: $(python -c 'import sys; print(sys.executable)')"
+          echo "🐍 Python location: $(which python)"
+
+          echo "📦 Python packages (pip freeze head):"
+          python -m pip freeze | head -10
+
+          echo "📂 Python environment variables:"
+          env | grep -E "(PYTHON|py)" | head -10
+
+          echo "## 🐍 Python Setup Verification" >> $GITHUB_STEP_SUMMARY
+          echo "- **Python Version:** $(python --version)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Pip Version:** $(python -m pip --version)" >> $GITHUB_STEP_SUMMARY
+          python -c "import sys; print('- **Python Path Count:**', len(sys.path))" >> $GITHUB_STEP_SUMMARY
+          echo "::endgroup::"
+
+      - name: Install dependencies for PR validation
+        run: |
+          echo "::group::📦 Installing Dependencies Debug (PR)"
+
+          # Pre-installation checks
+          echo "🔍 Pre-installation checks:"
+          echo "  - Space before install: $(df -h . | tail -n1 | awk '{print $4}')"
+          echo "  - pip cache info: $(python -m pip cache dir)"
+          echo "  - jq availability: $(which jq 2>/dev/null || echo 'not found')"
+
+          echo "📥 Starting PR validation installations..."
+
+          # Python packages with detailed logging
+          echo "🐍 Installing Python packages for PR validation..."
+          python -m pip install pyyaml --verbose --no-cache-dir
+
+          # System packages
+          echo "💻 Installing system packages..."
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+          echo "📊 Post-installation verification:"
+          echo "  - pyyaml installed: $(python -c 'import yaml; print("✅")' 2>/dev/null || echo '❌')"
+          echo "  - jq installed: $(jq --version | head -1 || echo 'not found')"
+          echo "  - Space after install: $(df -h . | tail -n1 | awk '{print $4}')"
+
+          echo "## 📦 Dependency Installation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- PyYAML: $(python -c 'import yaml; print("✅ Installed")' 2>/dev/null || echo '❌ Failed')" >> $GITHUB_STEP_SUMMARY
+          echo "- jq: $(jq --version | head -1 2>/dev/null || echo '❌ Not installed')" >> $GITHUB_STEP_SUMMARY
+          echo "::endgroup::"
 
       - name: Validate PR changes
         id: pr-validation
@@ -332,29 +634,294 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - name: Checkout repository
+      - name: Initialize merge debug environment
+        run: |
+          echo "::group::🚀 Initializing Merge Debug Environment"
+          echo "📅 $(date '+%Y-%m-%d %H:%M:%S %Z')"
+          echo "💻 Runner: $RUNNER_NAME (OS: $RUNNER_OS, Arch: $RUNNER_ARCH)"
+          echo "📊 Debug Level: $DEBUG_LEVEL"
+          echo "🎯 Job: ${{ github.job }}"
+          echo "🏷️  Event: ${{ github.event_name }}"
+          echo "⭐ Actor: ${{ github.actor }}"
+          echo "📂 Workspace: $RUNNER_WORKSPACE"
+          echo "🔗 PR: #${{ github.event.pull_request.number }}"
+          echo "✨ Merge Target: ${{ github.event.pull_request.base.ref }}"
+
+          # System information logging
+          echo "💽 Pre-merge disk usage:" >> $GITHUB_STEP_SUMMARY
+          df -h / | head -n 2 >> $GITHUB_STEP_SUMMARY
+          echo "🧠 Pre-merge memory usage:" >> $GITHUB_STEP_SUMMARY
+          free -h >> $GITHUB_STEP_SUMMARY
+
+          # PR merge prerequisites
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔍 Merge Prerequisites Check" >> $GITHUB_STEP_SUMMARY
+          echo "- **PR State:** ${{ github.event.pull_request.state }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Draft:** ${{ github.event.pull_request.draft }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Labels:** ${{ join(github.event.pull_request.labels.*.name, ', ') }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Merge Status:** ${{ github.event.pull_request.merged }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Auto-merge Label:** $(echo '${{ github.event.pull_request.labels.*.name }}' | grep -q 'automerge' && echo '✅ Present' || echo '❌ Missing')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Validation Label:** $(echo '${{ github.event.pull_request.labels.*.name }}' | grep -q 'auto-validated' && echo '✅ Present' || echo '❌ Missing')" >> $GITHUB_STEP_SUMMARY
+          echo "::endgroup::"
+
+      - name: Checkout repository with merge debugging
         uses: actions/checkout@v4
 
-      - name: Wait for required checks
+      - name: Post-checkout merge verification
+        continue-on-error: true
         run: |
-          echo "🔄 Waiting for status checks to complete..."
-          # Give other jobs time to complete
-          sleep 10
+          echo "::group::🔍 Post-Checkout Merge Environment Analysis"
+          echo "📂 Current directory: $(pwd)"
+          echo "📋 Git version: $(git --version)"
+          echo "🔗 Remote URL: $(git remote get-url origin)"
+          echo "🌿 Current branch: $(git branch --show-current)"
 
-      - name: Auto merge pull request
+          echo "🔍 Checking PR branch availability..."
+          PR_BRANCH_EXISTS=$(git ls-remote origin ${{ github.event.pull_request.head.ref }} 2>/dev/null && echo "exists" || echo "not found")
+          echo "🪵 PR Head Branch Status: $PR_BRANCH_EXISTS"
+
+          echo "📊 Base branch status:" >> $GITHUB_STEP_SUMMARY
+          echo "- Local branches:" >> $GITHUB_STEP_SUMMARY
+          git branch -a >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "## 🔗 Branch Status Verification" >> $GITHUB_STEP_SUMMARY
+          echo "- **Base Branch (${{ github.event.pull_request.base.ref }}:** $(git show-ref refs/heads/${{ github.event.pull_request.base.ref }} 2>/dev/null && echo '✅ Available' || echo '❌ Not found')" >> $GITHUB_STEP_SUMMARY
+          echo "- **PR Head Branch (${{ github.event.pull_request.head.ref }}):** $PR_BRANCH_EXISTS" >> $GITHUB_STEP_SUMMARY
+          echo "- **Current HEAD:** $(git rev-parse HEAD 2>/dev/null || echo 'unknown')" >> $GITHUB_STEP_SUMMARY
+          echo "::endgroup::"
+
+      - name: Verify GitHub CLI installation
+        continue-on-error: true
         run: |
-          echo "🚀 Merging PR #${{ github.event.pull_request.number }} (${{ github.event.pull_request.title }})..."
-
-          # Ensure PR is still open and ready
-          PR_STATE=$(gh pr view ${{ github.event.pull_request.number }} --json state,isDraft --jq 'if .state == "OPEN" and .isDraft == false then "ready" else "not-ready" end')
-
-          if [ "$PR_STATE" = "ready" ]; then
-            echo "✅ PR is ready for merge, proceeding..."
-            gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch
-            echo "✨ Successfully merged PR and deleted branch '${{ github.event.pull_request.headRef.name }}'"
+          echo "::group::🔧 GitHub CLI Verification"
+          echo "📦 Checking GitHub CLI availability..."
+          if ! command -v gh &> /dev/null; then
+            echo "❌ GitHub CLI not found, installing..."
+            sudo apt-get update
+            sudo apt-get install -y curl wget
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt-get update
+            sudo apt-get install -y gh
+            echo "✅ GitHub CLI installed successfully"
           else
-            echo "❌ PR is not ready for merge ($PR_STATE), skipping..."
-            exit 1
+            echo "✅ GitHub CLI already available"
+            gh --version
           fi
+
+          echo "🔑 Checking GitHub CLI authentication..."
+          if gh auth status --hostname github.com >/dev/null 2>&1; then
+            echo "✅ GitHub CLI authenticated"
+          else
+            echo "❌ GitHub CLI not authenticated"
+          fi
+
+          echo "## 🔧 GitHub CLI Status" >> $GITHUB_STEP_SUMMARY
+          echo "- **Installed:** $(gh --version | head -1 || echo 'Failed')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Authenticated:** $(gh auth status --hostname github.com >/dev/null 2>&1 && echo '✅' || echo '❌')" >> $GITHUB_STEP_SUMMARY
+          echo "::endgroup::"
+
+      - name: Wait for required checks with detailed logging
+        run: |
+          echo "::group::⏳ Pre-Merge Check Verification"
+          echo "🔄 Waiting for other jobs to complete..."
+          echo "📊 Job dependencies:"
+          echo "  - Job: ${{ github.job }}"
+          echo "  - Run ID: ${{ github.run_id }}"
+          echo "  - Attempt: ${{ github.run_attempt }}"
+
+          # Wait for required checks
+          echo "⏰ Starting wait timer..."
+          START_TIME=$(date +%s)
+          sleep 10
+          END_TIME=$(date +%s)
+          WAIT_DURATION=$((END_TIME - START_TIME))
+
+          echo "🕐 Wait completed after $WAIT_DURATION seconds"
+
+          # Check PR status again after wait
+          echo "📋 Checking PR status after wait..."
+          PR_CURRENT_STATE=$(gh pr view ${{ github.event.pull_request.number }} --json state,isDraft,mergeable --jq '{state: .state, isDraft: .isDraft, mergeable: .mergeable}' || echo '{"state": "unknown", "isDraft": "unknown", "mergeable": "unknown"}')
+          echo "🔄 PR Status JSON: $PR_CURRENT_STATE"
+
+          echo "## ⏳ Pre-Merge Wait Completed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Wait Duration:** $WAIT_DURATION seconds" >> $GITHUB_STEP_SUMMARY
+          echo "- **PR State:** $(echo $PR_CURRENT_STATE | jq -r .state 2>/dev/null || echo 'unknown')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Draft Status:** $(echo $PR_CURRENT_STATE | jq -r .isDraft 2>/dev/null || echo 'unknown')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Mergeable:** $(echo $PR_CURRENT_STATE | jq -r .mergeable 2>/dev/null || echo 'unknown')" >> $GITHUB_STEP_SUMMARY
+          echo "::endgroup::"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Auto merge pull request with comprehensive debugging
+        id: merge-attempt
+        continue-on-error: true
+        run: |
+          echo "::group::🔀 Auto Merge Process"
+          MERGE_START=$(date +%s)
+          echo "🚀 Starting merge process for PR #${{ github.event.pull_request.number }}..."
+
+          # Comprehensive PR state check
+          echo "🔍 Running comprehensive PR readiness checks..."
+          PR_DETAILS=$(gh pr view ${{ github.event.pull_request.number }} \
+            --json number,title,headRefName,baseRefName,state,isDraft,mergeable,mergeStateStatus,labels,reviews,commits \
+            || echo "{}")
+
+          echo "📋 PR Details JSON:"
+          echo "$PR_DETAILS" | cat
+
+          # Extract important fields
+          PR_STATE=$(echo "$PR_DETAILS" | jq -r '.state // "unknown"')
+          PR_DRAFT=$(echo "$PR_DETAILS" | jq -r '.isDraft // false')
+          PR_MERGEABLE=$(echo "$PR_DETAILS" | jq -r '.mergeable // "unknown"')
+          PR_MERGE_STATUS=$(echo "$PR_DETAILS" | jq -r '.mergeStateStatus // "unknown"')
+
+          echo ""
+          echo "📊 Merge Readiness Analysis:"
+          echo "  - PR State: $PR_STATE (Expected: OPEN)"
+          echo "  - Is Draft: $PR_DRAFT (Expected: false)"
+          echo "  - Mergeable: $PR_MERGEABLE (Expected: MERGEABLE)"
+          echo "  - Merge Status: $PR_MERGE_STATUS (Expected: CLEAN)"
+
+          # Label verification
+          LABELS_FOUND=$(echo "$PR_DETAILS" | jq -r '.labels[].name // empty' | tr '\n' ' ')
+          AUTOLABEL_FOUND=$(echo "$LABELS_FOUND" | grep -q "auto-validated" && echo "true" || echo "false")
+          MERGELABEL_FOUND=$(echo "$LABELS_FOUND" | grep -q "automerge" && echo "true" || echo "false")
+
+          echo "  - Auto-validated label: $AUTOLABEL_FOUND"
+          echo "  - Automerge label: $MERGELABEL_FOUND"
+          echo "  - All labels: $LABELS_FOUND"
+
+          # Decision logic with detailed logging
+          CAN_MERGE="true"
+          REASONS=""
+
+          if [ "$PR_STATE" != "OPEN" ]; then
+            CAN_MERGE="false"
+            REASONS="${REASONS}\n❌ PR is not OPEN (current: $PR_STATE)"
+          fi
+
+          if [ "$PR_DRAFT" = "true" ]; then
+            CAN_MERGE="false"
+            REASONS="${REASONS}\n❌ PR is a draft"
+          fi
+
+          if [ "$AUTOLABEL_FOUND" != "true" ]; then
+            CAN_MERGE="false"
+            REASONS="${REASONS}\n❌ Missing 'auto-validated' label"
+          fi
+
+          if [ "$MERGELABEL_FOUND" != "true" ]; then
+            CAN_MERGE="false"
+            REASONS="${REASONS}\n❌ Missing 'automerge' label"
+          fi
+
+          if [ "$CAN_MERGE" = "true" ]; then
+            echo ""
+            echo "✅ All conditions met, proceeding with merge..."
+
+            # Perform the merge with detailed error handling
+            echo "🔀 Executing merge command..."
+            MERGE_OUTPUT=$(gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch 2>&1)
+            MERGE_EXIT_CODE=$?
+
+            if [ $MERGE_EXIT_CODE -eq 0 ]; then
+              echo "✅ Merge successful!"
+              echo "$MERGE_OUTPUT"
+              MERGE_SUCCESS="true"
+            else
+              echo "❌ Merge failed with exit code $MERGE_EXIT_CODE"
+              echo "📄 Merge output:"
+              echo "$MERGE_OUTPUT"
+              MERGE_SUCCESS="false"
+              MERGE_ERROR="$MERGE_OUTPUT"
+            fi
+          else
+            echo ""
+            echo "❌ Merge conditions not met:"
+            echo -e "$REASONS"
+            MERGE_SUCCESS="false"
+            MERGE_ERROR="Prerequisites not met: $REASONS"
+          fi
+
+          MERGE_END=$(date +%s)
+          MERGE_DURATION=$((MERGE_END - MERGE_START))
+
+          echo ""
+          echo "📊 Merge Process Summary:"
+          echo "  - Duration: $MERGE_DURATION seconds"
+          echo "  - Success: $MERGE_SUCCESS"
+
+          # Set output variables
+          echo "merge-success=$MERGE_SUCCESS" >> $GITHUB_OUTPUT
+          echo "merge-duration=$MERGE_DURATION" >> $GITHUB_OUTPUT
+          if [ "$MERGE_SUCCESS" = "false" ]; then
+            echo "merge-error=$MERGE_ERROR" >> $GITHUB_OUTPUT
+          fi
+
+          echo "::endgroup::"
+
+      - name: Process merge results and update step summary
+        run: |
+          echo "::group::📊 Merge Completion Analysis"
+          MERGE_SUCCESS="${{ steps.merge-attempt.outputs.merge-success }}"
+          MERGE_DURATION="${{ steps.merge-attempt.outputs.merge-duration }}"
+          MERGE_ERROR="${{ steps.merge-attempt.outputs.merge-error }}"
+
+          if [ "$MERGE_SUCCESS" = "true" ]; then
+            echo "🎉 Merge completed successfully!"
+            echo "## ✅ Merge Completed Successfully" >> $GITHUB_STEP_SUMMARY
+            echo "- **PR:** #${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Branch:** ${{ github.event.pull_request.head.ref }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Duration:** $MERGE_DURATION seconds" >> $GITHUB_STEP_SUMMARY
+            echo "- **Deleted Branch:** Yes (squash merge)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Merge failed or skipped"
+            echo "## ❌ Merge Failed or Skipped" >> $GITHUB_STEP_SUMMARY
+            echo "- **PR:** #${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Duration:** $MERGE_DURATION seconds" >> $GITHUB_STEP_SUMMARY
+            if [ -n "$MERGE_ERROR" ]; then
+              echo "- **Error Details:** $MERGE_ERROR" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            # Log error details for debugging
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🐛 Debug Information" >> $GITHUB_STEP_SUMMARY
+            echo "- **PR State:** ${{ github.event.pull_request.state }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Is Draft:** ${{ github.event.pull_request.draft }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Labels Present:** ${{ join(github.event.pull_request.labels.*.name, ', ') }}" >> $GITHUB_STEP_SUMMARY
+
+            # Save debug artifact on failure
+            mkdir -p merge-debug
+            echo "# Merge Debug Information" > merge-debug/merge-debug.md
+            echo "Generated: $(date)" >> merge-debug/merge-debug.md
+            echo "PR: #${{ github.event.pull_request.number }}" >> merge-debug/merge-debug.md
+            echo "Branch: ${{ github.event.pull_request.head.ref }}" >> merge-debug/merge-debug.md
+            echo "" >> merge-debug/merge-debug.md
+            echo "## Error Details" >> merge-debug/merge-debug.md
+            echo "$MERGE_ERROR" >> merge-debug/merge-debug.md
+
+            exit 1  # Fail the step on merge failure
+          fi
+
+          echo ""
+          echo "📋 System Status (Post-Merge):" >> $GITHUB_STEP_SUMMARY
+          echo "- Disk usage:" >> $GITHUB_STEP_SUMMARY
+          df -h . | tail -n1 >> $GITHUB_STEP_SUMMARY
+          echo "- Memory usage:" >> $GITHUB_STEP_SUMMARY
+          free -h >> $GITHUB_STEP_SUMMARY
+          echo "::endgroup::"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload merge debug artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: merge-debug-logs-${{ github.run_id }}
+          path: |
+            merge-debug/
+            $RUNNER_WORKSPACE/merge-debug/
+          retention-days: ${{ env.LOG_ARTIFACT_RETENTION_DAYS }}
+          if-no-files-found: warn
