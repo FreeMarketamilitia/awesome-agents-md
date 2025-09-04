@@ -18,6 +18,65 @@ def is_branch_behind_main():
     behind_count = run_git_command("git rev-list --count HEAD..origin/main")
     return int(behind_count) > 0
 
+def is_valid_path(path):
+    """Check if path is a valid relative path and allowed type."""
+    if os.path.isabs(path):
+        return False, "Absolute paths are not allowed"
+
+    # Normalize path
+    norm_path = os.path.normpath(path)
+
+    # Disallow dangerous patterns
+    if '..' in norm_path or norm_path.startswith('/'):
+        return False, "Invalid path patterns (e.g., '..')"
+
+    if os.path.exists(norm_path):
+        if os.path.isdir(norm_path):
+            return True, None
+        elif os.path.isfile(norm_path):
+            if norm_path.lower().endswith(('.md', '.yaml')):
+                return True, None
+            else:
+                return False, f"File must end with .md or .yaml: {path}"
+        else:
+            return False, f"Path exists but is neither file nor directory: {path}"
+    else:
+        return False, f"Path does not exist: {path}"
+
+def get_md_files_in_repo():
+    """Get all .md files in the repository."""
+    md_files = []
+    for root, _, files in os.walk('.'):
+        for file in files:
+            if file.lower().endswith('.md'):
+                # Convert to relative path from repo root
+                rel_path = os.path.normpath(os.path.join(root, file)).lstrip('./')
+                md_files.append(rel_path)
+    return md_files
+
+def get_md_files_in_pr():
+    """Get .md files added or modified in the PR."""
+    # Get files changed in the PR compared to origin/main
+    diff_command = "git diff --name-only origin/main...HEAD"
+    changed_files = run_git_command(diff_command).splitlines()
+    return [f for f in changed_files if f.lower().endswith('.md')]
+
+def check_md_files_in_yaml(data, md_files):
+    """Check if all .md files are referenced in the 'source' field of index.yaml."""
+    errors = []
+    if 'agents' not in data or not isinstance(data['agents'], list):
+        return errors  # Errors for missing/invalid agents list are handled in validate_index_yaml
+
+    # Get all source paths from index.yaml
+    sources = {agent.get('source') for agent in data['agents'] if isinstance(agent, dict) and 'source' in agent}
+
+    # Check if each .md file is in the sources
+    for md_file in md_files:
+        if md_file not in sources:
+            errors.append(f"Markdown file '{md_file}' is not referenced in the 'source' field of any agent in index.yaml")
+
+    return errors
+
 def validate_index_yaml():
     index_path = 'index.yaml'
     if not os.path.exists(index_path):
@@ -35,14 +94,38 @@ def validate_index_yaml():
     elif not isinstance(data['agents'], list):
         errors.append("'agents' must be a list in index.yaml")
     else:
-        for agent in data['agents']:
-            if not isinstance(agent, dict) or 'name' not in agent:
-                errors.append(f"Invalid agent entry: {agent} (must be dict with 'name')")
+        for i, agent in enumerate(data['agents']):
+            if not isinstance(agent, dict):
+                errors.append(f"Agent entry {i+1} must be a dictionary")
+                continue
 
-            # Check if source file exists (if present)
-            if 'source' in agent and isinstance(agent['source'], str):
-                if not os.path.exists(agent['source']):
-                    errors.append(f"Source file not found: {agent['source']}")
+            required_keys = {'name', 'source', 'target'}
+            missing_keys = required_keys - set(agent.keys())
+            if missing_keys:
+                errors.append(f"Agent entry {i+1} missing keys: {', '.join(missing_keys)}")
+
+            extra_keys = set(agent.keys()) - required_keys
+            if extra_keys:
+                errors.append(f"Agent entry {i+1} has extra keys: {', '.join(extra_keys)}")
+
+            if 'name' in agent and not isinstance(agent['name'], str):
+                errors.append(f"Agent entry {i+1} 'name' must be a string")
+
+            for field in ['source', 'target']:
+                if field in agent:
+                    if not isinstance(agent[field], str):
+                        errors.append(f"Agent entry {i+1} '{field}' must be a string")
+                    else:
+                        valid, msg = is_valid_path(agent[field])
+                        if not valid:
+                            errors.append(f"Agent entry {i+1} invalid '{field}': {msg}")
+
+    # Check if all .md files are referenced in index.yaml
+    # Option 1: Check all .md files in the repo
+    md_files = get_md_files_in_repo()
+    # Option 2: Check only .md files modified in the PR (uncomment to use)
+    # md_files = get_md_files_in_pr()
+    errors.extend(check_md_files_in_yaml(data, md_files))
 
     return errors
 
@@ -54,10 +137,8 @@ def main():
 
     errors.extend(validate_index_yaml())
 
-    # Print JSON for workflow to pick up
-    print(json.dumps(errors))
-
     if errors:
+        print("\n".join(errors))  # Output as newline-separated for multi-line support
         sys.exit(1)
     else:
         sys.exit(0)
