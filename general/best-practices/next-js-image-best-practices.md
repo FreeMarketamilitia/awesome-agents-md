@@ -1,7 +1,7 @@
 ---
 description: Guidelines for Next.js Image Optimization
 author: https://github.com/cuipengfei
-version: 8.0
+version: 9.0
 tags: ["nextjs", "image-optimization", "performance", "guide", "best-practices"]
 globs: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"]
 ---
