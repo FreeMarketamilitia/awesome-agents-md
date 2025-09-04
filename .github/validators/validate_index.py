@@ -7,8 +7,9 @@ import yaml
 
 def run(cmd: str) -> str:
     try:
-        return subprocess.check_output(cmd, shell=True, text=True).strip()
-    except subprocess.CalledProcessError:
+        return subprocess.check_output(cmd, shell=True, text=True, stderr=subprocess.STDOUT).strip()
+    except subprocess.CalledProcessError as e:
+        print(f"Command failed: {cmd}\nError: {e.output}")
         return ""
 
 
@@ -75,18 +76,15 @@ def validate_index_yaml(require_source_exists: bool = False):
             errors.append(f"Agent entry {i+1} must be a mapping (dictionary)")
             continue
 
-        # Required non-empty strings
         for key in ("name", "source", "target"):
             v = agent.get(key)
             if not isinstance(v, str) or not v.strip():
                 errors.append(f"Agent entry {i+1} '{key}' must be a non-empty string")
 
-        # target must end with .md
         target = str(agent.get("target", "")).strip()
         if target and not target.lower().endswith(".md"):
             errors.append(f"Agent entry {i+1} 'target' must end with .md")
 
-        # When index.yaml changed, ensure source exists in the commit
         if require_source_exists:
             source = str(agent.get("source", "")).strip()
             if source:
@@ -104,21 +102,28 @@ def validate_index_yaml(require_source_exists: bool = False):
 
 
 def main():
+    pr_number = os.getenv("GITHUB_PR_NUMBER", "unknown")
     changed = get_changed_files()
     idx_changed = index_yaml_changed(changed)
     new_md = new_non_doc_md_added(changed)
 
     errors = []
-    # Always enforce branch not behind main
     if is_behind_main():
         errors.append("Branch is behind main - please rebase or merge main into your branch")
 
-    # If validation not in scope and no other errors, "pass"
     if not idx_changed and not new_md:
+        print(f"PR #{pr_number}: No changes to index.yaml or new non-doc .md files; validation skipped")
         print(json.dumps(errors))
         sys.exit(1 if errors else 0)
 
     errors.extend(validate_index_yaml(require_source_exists=idx_changed))
+    if errors:
+        print(f"PR #{pr_number}: Validation failed with errors:")
+        for error in errors:
+            print(f"- {error}")
+    else:
+        print(f"PR #{pr_number}: Validation passed")
+
     print(json.dumps(errors))
     sys.exit(1 if errors else 0)
 
