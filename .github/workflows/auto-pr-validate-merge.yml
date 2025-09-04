@@ -74,8 +74,53 @@ jobs:
             });
             core.setOutput('number', String(number));
             core.info(`PR #${number} labeled and ready`);
-      
-      # Auto-merge on push/create removed; merging handled by pull_request "auto_merge" job after PR validation.
+
+      - name: Auto-merge PR after validation
+        id: auto_merge
+        if: success()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const head = context.ref.replace('refs/heads/','');
+            if (head === 'main') {
+              core.info('Skipping auto-merge for main branch');
+              return;
+            }
+
+            // Find the PR for this branch
+            const prs = await github.rest.pulls.list({
+              owner, repo, state: 'open', head: `${owner}:${head}`, per_page: 1
+            });
+
+            if (prs.data.length === 0) {
+              core.info('No PR found for this branch');
+              return;
+            }
+
+            const number = prs.data[0].number;
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
+
+            if (pr.state !== 'open' || pr.draft) {
+              core.info('PR not ready to merge');
+              return;
+            }
+
+            const res = await github.rest.pulls.merge({ owner, repo, pull_number: number, merge_method: 'squash' });
+            if (!res.data.merged) {
+              core.setFailed(`Merge failed: ${res.data.message}`);
+              return;
+            }
+
+            try {
+              await github.rest.git.deleteRef({ owner, repo, ref: `heads/${head}` });
+            } catch (e) {
+              core.info(`Branch delete failed (non-blocking): ${e.message}`);
+            }
+
+            core.info(`Successfully merged PR #${number} and cleaned up branch ${head}`);
   validate_pr:
     runs-on: ubuntu-latest
     if: >
