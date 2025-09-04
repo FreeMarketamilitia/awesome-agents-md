@@ -1,4 +1,4 @@
-name: Auto Create and Merge Pull Request
+name: Auto Create, Merge, and Delete Pull Request
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
       - '!main'
 
 jobs:
-  create-and-merge-pull-request:
+  create-merge-and-delete-pull-request:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -40,9 +40,9 @@ jobs:
           PR_URL=$(gh pr create --base main --head "$BRANCH_NAME" --title "PR for $BRANCH_NAME" --body "Auto-generated PR for $BRANCH_NAME")
           echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
 
-      - name: Auto-merge Pull Request
+      - name: Auto-merge Pull Request and Delete Branch
         if: steps.create_pr.outputs.pr_url
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr merge ${{ steps.create_pr.outputs.pr_url }} --admin --merge
+          gh pr merge ${{ steps.create_pr.outputs.pr_url }} --admin --merge --delete-branch
