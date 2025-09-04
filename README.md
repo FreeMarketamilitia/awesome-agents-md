@@ -92,14 +92,16 @@ agents:
 
 ## Quick start
 
-1) Edit <a href="index.yaml"><code>index.yaml</code></a>  
-2) Pick a <code>target</code>:
+1) Fork this repository  
+2) Create a new branch  
+3) Add your AI rule file  
+4) Update <a href="index.yaml"><code>index.yaml</code></a>  
+5) Pick a <code>target</code>:
    - <code>AGENTS.md</code> for a single root bundle  
    - <code>path/to/AGENTS.md</code> for nested bundles  
-3) Follow AgentFetch instructions:
+6) Commit and push your changes  
+7) Use AgentFetch to add to your codebase:
    - https://github.com/FreeMarketamilitia/agent-fetch  
-4) Commit generated files
-
 ---
 
 ## index.yaml format
