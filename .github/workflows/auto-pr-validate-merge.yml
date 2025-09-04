@@ -50,20 +50,21 @@ jobs:
       - name: Create or update PR
         id: create_pr
         if: success() && steps.validate.outcome == 'success'
-        uses: peter-evans/create-pull-request@v7
+        uses: ./.github/actions/create-pull-request
         with:
           token: ${{ github.token }}
+          path: '.'
           branch: auto-pr-${{ github.sha }}
           base: main
           title: "Auto PR: ${{ github.ref_name }}"
           body: Auto-created PR for branch ${{ github.ref_name }}. Validated by workflow.
-          labels: auto-validated, automerge
+          labels: "auto-validated,automerge"
           delete-branch: true
           commit-message: Auto commit for PR from ${{ github.ref_name }}
 
       - name: Attempt automerge
         if: success() && steps.validate.outcome == 'success' && steps.create_pr.outputs.pull-request-number != ''
-        uses: reitermarkus/automerge@v2.8.0
+        uses: ./.github/actions/automerge
         with:
           token: ${{ github.token }}
           pull-request: ${{ steps.create_pr.outputs.pull-request-number }}
@@ -113,11 +114,12 @@ jobs:
       pull-requests: write
     steps:
       - name: Attempt automerge
-        uses: reitermarkus/automerge@v2.8.0
+        uses: ./.github/actions/automerge
         with:
           token: ${{ github.token }}
           pull-request: ${{ github.event.pull_request.number }}
           merge-method: squash
+          required-labels: "automerge,auto-validated"
 
   automerge_after_checks:
     runs-on: ubuntu-latest
@@ -127,7 +129,8 @@ jobs:
       pull-requests: write
     steps:
       - name: Attempt automerge (post-checks)
-        uses: reitermarkus/automerge@v2.8.0
+        uses: ./.github/actions/automerge
         with:
           token: ${{ github.token }}
           merge-method: squash
+          required-labels: "automerge,auto-validated"
