@@ -1,7 +1,6 @@
 name: Agents Validation, PR, and Auto-merge
 
 on:
-  create:
   push:
     branches-ignore:
       - main
@@ -18,7 +17,7 @@ concurrency:
 
 jobs:
   validate_on_branch:
-    if: github.event_name == 'push' || (github.event_name == 'create' && github.event.ref_type == 'branch')
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
