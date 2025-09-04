@@ -1,6 +1,8 @@
 name: Auto Validate, Create PR, and Merge
 
 on:
+  create:
+    branches: ["*"]
   push:
     branches-ignore:
       - main
@@ -13,13 +15,11 @@ permissions:
 jobs:
   validate-and-create-pr:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' }}
+    if: ${{ github.event_name == 'push' || github.event_name == 'create' }}
     permissions:
       contents: read
       pull-requests: write
-    outputs:
-      validation-passed: ${{ steps.validation.outputs.result }}
-      pr-number: ${{ steps.pr-create.outputs.pr-number }}
+      statuses: write
     steps:
       - name: Checkout branch
         uses: actions/checkout@v4
@@ -36,18 +36,18 @@ jobs:
           pip install pyyaml
           sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Validate repository
+      - name: Validate branch (only changed files)
         id: validation
         continue-on-error: true
         run: |
-          echo "🔍 Running repository validation for ${{ github.ref_name }}..."
+          echo "🔍 Running validation for changes in ${{ github.ref_name }}..."
           ERRORS_JSON=$(python .github/scripts/validate_index.py)
           PY_EXIT_CODE=$?
 
           if [ "$ERRORS_JSON" != "[]" ] && [ -n "$ERRORS_JSON" ]; then
             ERRORS_FORMATTED=$(echo "$ERRORS_JSON" | jq -r '.[] | "- \(.)"')
           else
-            ERRORS_FORMATTED="Validation passed."
+            ERRORS_FORMATTED="✅ Validation passed - all changes are valid."
           fi
 
           echo "Validation result:"
@@ -62,80 +62,104 @@ jobs:
           else
             echo "result=false" >> $GITHUB_OUTPUT
           fi
-        shell: bash
+
+      - name: Set commit status
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const status = '${{ steps.validation.outputs.result }}' === 'true' ? 'success' : 'failure';
+            const description = '${{ steps.validation.outputs.result }}' === 'true' ?
+              'Validation successful ✅' : 'Validation failed ❌';
+
+            github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: status,
+              description: description,
+              context: 'validation'
+            });
 
       - name: Create PR if validation passed
         id: pr-create
-        if: ${{ steps.validation.outputs.result == 'true' }}
+        if: steps.validation.outputs.result == 'true'
         run: |
-          echo "✅ Validation passed! Creating PR for branch ${{ github.ref_name }}..."
-          PR_TITLE="Auto PR: ${{ github.ref_name }} - $(date +'%Y-%m-%d %H:%M')"
-          PR_BODY="Automatically created PR for branch ${{ github.ref_name }}
-
-          Validation completed successfully ✅
-          - All checks passed
-          - Ready for review and automerge"
+          echo "✅ Validation passed! Checking for existing PR..."
 
           # Check if PR already exists
-          PR_EXISTS=$(gh pr list --head ${{ github.ref_name }} --json number --jq '.[0].number // empty')
+          PR_EXISTS=$(gh pr list --head ${{ github.ref_name }} --base main --state open --json number --jq '.[0].number // empty')
           if [ -z "$PR_EXISTS" ]; then
             echo "Creating new PR..."
+            PR_TITLE="Auto PR: ${{ github.ref_name }}"
+            PR_BODY="Automatically created PR for branch ${{ github.ref_name }}
+
+          ### Validation Results
+          ✅ **All validation checks passed**
+
+          **Changes in this branch:**
+          $(git log --oneline origin/main..HEAD)
+
+          This PR is ready for automatic merge once labeled with \`automerge\`."
+
+            echo "Creating PR..."
             PR_NUMBER=$(gh pr create \
               --title "$PR_TITLE" \
               --body "$PR_BODY" \
               --base main \
               --head ${{ github.ref_name }} \
-              --label "automerge" \
               --label "auto-validated" \
               --json number --jq '.number')
+
             echo "pr-number=$PR_NUMBER" >> $GITHUB_OUTPUT
             echo "Created PR #$PR_NUMBER"
           else
-            echo "PR already exists (#$PR_EXISTS), adding validation labels..."
-            gh pr edit $PR_EXISTS --add-label "automerge" --add-label "auto-validated"
+            echo "PR already exists (#$PR_EXISTS) - adding validation labels..."
+            gh pr edit $PR_EXISTS --add-label "auto-validated"
             echo "pr-number=$PR_EXISTS" >> $GITHUB_OUTPUT
+            echo "Updated existing PR #$PR_EXISTS"
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create issue comment for failed validation
-        if: ${{ steps.validation.outputs.result == 'false' }}
+      - name: Create issue for validation failure
+        if: steps.validation.outputs.result == 'false'
         run: |
-          echo "❌ Validation failed for branch ${{ github.ref_name }}"
+          echo "❌ Validation failed. Creating tracking issue..."
 
-          # Create an issue to track the validation failure
           ISSUE_TITLE="Validation Failed: ${{ github.ref_name }}"
-          ISSUE_BODY="Branch ${{ github.ref_name }} failed validation.
+          ISSUE_BODY="Branch **${{ github.ref_name }}** failed repository validation.
 
           ### Validation Errors:
           \`\`\`text
           ${{ steps.validation.outputs.errors }}
           \`\`\`
 
-          Please fix these issues and push again to create a valid PR."
+          ### Next Steps:
+          1. Fix the validation errors above
+          2. Commit and push your changes
+          3. The workflow will automatically retry validation
+          4. Once validation passes, a PR will be created automatically
 
-          # Check if issue already exists
-          EXISTING_ISSUE=$(gh issue list --search "$ISSUE_TITLE" --json number --jq '.[0].number // empty')
-          if [ -z "$EXISTING_ISSUE" ]; then
-            gh issue create \
-              --title "$ISSUE_TITLE" \
-              --body "$ISSUE_BODY" \
-              --label "validation-failed"
-          else
-            echo "Issue already exists (#$EXISTING_ISSUE) - adding comment"
-            gh issue comment $EXISTING_ISSUE --body "Updated validation errors:\\n\\n\`\`\`text\\n${{ steps.validation.outputs.errors }}\\n\`\`\`"
-          fi
+          Branch: \`${{ github.ref_name }}\`
+          Commit: \`${{ github.sha }}\`"
+
+          echo "Creating validation failure issue..."
+          gh issue create \
+            --title "$ISSUE_TITLE" \
+            --body "$ISSUE_BODY" \
+            --label "validation-failed" \
+            --assignee ${{ github.actor }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  post-validation-pr-comment:
+  validate-pr:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' }}
+    if: github.event_name == 'pull_request'
     permissions:
       contents: read
       pull-requests: write
     steps:
-      - name: Checkout code
+      - name: Checkout PR
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -148,9 +172,13 @@ jobs:
       - name: Install dependencies
         run: pip install pyyaml
 
-      - name: Post validation errors to PR
+      - name: Validate PR changes
+        id: pr-validation
         run: |
-          echo "🔍 Running validation for PR ${{ github.event.pull_request.number }}..."
+          echo "🔍 Validating PR #${{ github.event.pull_request.number }}..."
+
+          # Switch to PR branch for validation
+          git checkout ${{ github.event.pull_request.head.sha }}
 
           ERRORS_JSON=$(python .github/scripts/validate_index.py)
           PY_EXIT_CODE=$?
@@ -161,38 +189,57 @@ jobs:
             ERRORS_FORMATTED="✅ All validation checks passed!"
           fi
 
+          echo "errors<<EOF" >> $GITHUB_OUTPUT
+          echo "$ERRORS_FORMATTED" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
           if [ $PY_EXIT_CODE -ne 0 ]; then
-            COMMENT_BODY="⚠️ **Validation failed for this PR** ⚠️
-
-            Please address the following validation errors:
-            \`\`\`markdown
-            $ERRORS_FORMATTED
-            \`\`\`
-            After fixing these issues, push your changes to retrigger validation."
-            echo "Posting validation failure comment..."
-            gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT_BODY"
-            exit 1
+            echo "result=false" >> $GITHUB_OUTPUT
           else
-            COMMENT_BODY="✅ **Validation passed!**
-
-            $ERRORS_FORMATTED
-
-            This PR is ready for automerge (if labeled with 'automerge')."
-            echo "Posting validation success comment..."
-            gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT_BODY"
+            echo "result=true" >> $GITHUB_OUTPUT
           fi
+
+      - name: Post validation results to PR
+        if: steps.pr-validation.outputs.result == 'true'
+        run: |
+          COMMENT_BODY="✅ **Validation successful!**
+
+          $ERRORS_JSON
+
+          This PR is ready for review and merge.
+          - Add \`automerge\` label to trigger automatic merging"
+
+          echo "Posting success comment..."
+          gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT_BODY"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Post validation errors to PR (fail workflow if needed)
+        if: steps.pr-validation.outputs.result == 'false'
+        run: |
+          COMMENT_BODY="⚠️ **Validation failed** ⚠️
+
+          Please address the following validation errors:
+          \`\`\`markdown
+          ${{ steps.pr-validation.outputs.errors }}
+          \`\`\`
+
+          After fixing these issues, push your changes to retrigger validation."
+
+          echo "Posting validation failure comment..."
+          gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT_BODY"
+          exit 1  # Fail the workflow to block merge
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   auto-merge:
-    needs: post-validation-pr-comment
+    runs-on: ubuntu-latest
     if: |
       github.event_name == 'pull_request' &&
       contains(github.event.pull_request.labels.*.name, 'automerge') &&
       contains(github.event.pull_request.labels.*.name, 'auto-validated') &&
       github.event.pull_request.draft == false &&
-      !github.event.pull_request.merged
-    runs-on: ubuntu-latest
+      github.event.pull_request.merged == false
     permissions:
       contents: write
       pull-requests: write
@@ -200,10 +247,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Wait for required checks
+        run: |
+          echo "🔄 Waiting for status checks to complete..."
+          # Give other jobs time to complete
+          sleep 10
+
       - name: Auto merge pull request
         run: |
           echo "🚀 Merging PR #${{ github.event.pull_request.number }} (${{ github.event.pull_request.title }})..."
-          gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch
-          echo "✅ Successfully merged PR and deleted branch"
+
+          # Ensure PR is still open and ready
+          PR_STATE=$(gh pr view ${{ github.event.pull_request.number }} --json state,isDraft --jq 'if .state == "OPEN" and .isDraft == false then "ready" else "not-ready" end')
+
+          if [ "$PR_STATE" = "ready" ]; then
+            echo "✅ PR is ready for merge, proceeding..."
+            gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch
+            echo "✨ Successfully merged PR and deleted branch '${{ github.event.pull_request.headRef.name }}'"
+          else
+            echo "❌ PR is not ready for merge ($PR_STATE), skipping..."
+            exit 1
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
